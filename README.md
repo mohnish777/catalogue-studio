@@ -4,7 +4,7 @@ An Android product catalogue built with Kotlin and Jetpack Compose. The planned 
 
 ## Current checkpoint
 
-The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio" and has domain contracts, enquiry validation, JSON mapping, and tested Ktor client/request handling ready for endpoint implementation. The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources, and Mailpit supplies a local test inbox. Enquiry sending and app-to-backend requests are not connected yet; no backend is needed to run the placeholder screen.
+The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio" and has domain contracts, enquiry validation, JSON mapping and a tested Ktor data-source implementation. The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources, and Mailpit supplies a local test inbox. App startup/UI are not connected to the data source yet. The enquiry request is prepared for the backend endpoint planned in Slice 12; actual email sending is not implemented. No backend is needed to run the placeholder screen.
 
 ## Run in Android Studio
 
@@ -222,7 +222,7 @@ The `com.cataloguestudio.domain` package is pure Kotlin, with no Android, Compos
 - `Result.kt` defines our two-parameter `Result<Data, Error>` with `Success(data)` and `Error(error)`, plus `DataError` cases for connection, timeout, invalid request, missing product, server, decoding and unknown failures. This is distinct from Kotlin's built-in `Result<T>`, which holds a Throwable on failure. The data layer's safeRequest helper translates HTTP/transport/decoding failures into these cases.
 - `CatalogueRemoteDataSource.kt` defines suspend functions for `getCatalogue(category, query)`, `getProduct(id)` and the future `sendEnquiry(enquiry)`. A null category/query means no filter. Sending returns `Result<Unit, DataError>` because success needs no domain payload. `suspend` allows coroutine callers to await an implementation; it does not automatically move work to a background thread.
 
-The intended flow is ViewModel → `CatalogueRemoteDataSource` → typed `Result` → UI state. In Slice 6 a Ktor implementation will translate HTTP DTOs into these domain models and map expected transport failures into `DataError`. The UI can then use an exhaustive `when` over success/error. No implementation or caller is connected in this chunk, and no repository or use-case wrapper is added for this single backend source.
+The intended flow is ViewModel → `CatalogueRemoteDataSource` → typed `Result` → UI state. `KtorCatalogueDataSource` now implements the contract using the shared client, DTO mappers and typed error handling. The UI will use an exhaustive `when` over success/error. Only tests construct/call the implementation so far; no repository or use-case wrapper is added for this single backend source.
 
 Slice 5A introduced the catalogue contract. Slice 5B adds the enquiry contract and tested local validation below; networking is still separate.
 
@@ -260,7 +260,7 @@ Mapping test flow: JSON string → `catalogueJson.decodeFromString<...Dto>()` �
 
 Slice 6B adds `data/CatalogueHttpClient.kt` and `data/SafeRequest.kt`. The client factory accepts a base URL and an injected Ktor engine, configures JSON request/response handling using `catalogueJson`, and sets a 15-second request timeout, five-second connect timeout and 15-second socket inactivity timeout. Redirect following and automatic exceptions for HTTP error statuses are disabled, so the request helper handles statuses explicitly.
 
-`safeRequest(execute, decode)` runs an HTTP call, checks its status and decodes/maps successful responses inside one guarded block. The future endpoint implementation supplies both lambdas. An empty success can use `decode = { Unit }`. Error bodies are not decoded as success DTOs.
+`safeRequest(execute, decode)` runs an HTTP call, checks its status and decodes/maps successful responses inside one guarded block. `KtorCatalogueDataSource` supplies both lambdas. An empty success can use `decode = { Unit }`. Error bodies are not decoded as success DTOs.
 
 | Failure | Domain error |
 | --- | --- |
@@ -274,7 +274,25 @@ Slice 6B adds `data/CatalogueHttpClient.kt` and `data/SafeRequest.kt`. The clien
 
 Coroutine cancellation is rethrown rather than converted into an error result. The helper also checks that the caller's coroutine remains active when an engine throws another exception during cancellation. No automatic retry is configured.
 
-Tests use [Ktor MockEngine](https://ktor.io/docs/client-testing.html) and a coroutine test dispatcher. They exercise the actual client configuration, JSON decoding/mapping, status handling, connection failures, cancellation and a delayed request timeout using virtual time. Tests close the client and injected engine. This is not a real socket, Android engine or backend connectivity check. Endpoint calls follow in 6C; the production engine and Koin/Application wiring follow in 6D.
+Tests use [Ktor MockEngine](https://ktor.io/docs/client-testing.html) and a coroutine test dispatcher. They exercise the actual client configuration, JSON decoding/mapping, status handling, connection failures, cancellation and a delayed request timeout using virtual time. Tests close the client and injected engine. This is not a real socket, Android engine or backend connectivity check. The production engine and Koin/Application wiring follow in 6D.
+
+## Android endpoint implementation
+
+Slice 6C adds `data/KtorCatalogueDataSource.kt`, implementing the domain interface with an injected shared HttpClient and backend base URL. The same base URL must be supplied to the client factory and this source so requests and resolved image URLs target the same backend.
+
+| Domain call | HTTP request | Successful domain result |
+| --- | --- | --- |
+| `getCatalogue(category, query)` | GET `/api/catalogue`, with `category` and `q` parameters | Catalogue mapped from CatalogueDto |
+| `getProduct(id)` | GET `/api/products/{id}` | Product mapped from ProductDto |
+| `sendEnquiry(enquiry)` | POST `/api/enquiries` with JSON body | Unit after a successful HTTP status |
+
+Null filters are omitted; non-null values (including a blank query) are forwarded through Ktor's parameter builder, which handles encoding. Explicit search submission remains a later presentation concern. The data source does not reimplement filtering/ranking or retry failed submissions. Each method uses safeRequest for status handling, decoding/mapping failures and cancellation.
+
+`data/EnquiryRequestDto.kt` maps the domain Enquiry into a serializable request with exactly productId/name/email/message. The empty optional message is included explicitly. This transport mapping preserves the supplied values; the future form uses EnquiryValidator to produce normalized fields, and the backend will validate independently.
+
+The real backend does not yet implement POST `/api/enquiries`; it returns 404 today, which the data source reports as NOT_FOUND. Enquiry success tests use simulated 201 responses and do not establish SMTP delivery. Slice 12 adds the endpoint and real local email integration.
+
+Endpoint tests verify methods/paths, absent and combined filters, special-character query encoding, domain response mapping, exact enquiry JSON/escaping, optional empty message, server failures without retry, mapper failures and cancellation. App startup and screens remain unchanged; no production caller or real backend connection is introduced in this chunk.
 
 ## Android backend address for later slices
 
@@ -304,7 +322,7 @@ android/
             ├── java/com/cataloguestudio/
             │   ├── MainActivity.kt
             │   ├── domain/  Models, contracts, typed results and enquiry validation
-            │   ├── data/    JSON mapping, Ktor client configuration and typed request handling
+            │   ├── data/    DTO mapping, Ktor client, typed requests and endpoint implementation
             │   └── ui/      Theme and typography
             └── res/values/strings.xml
 
