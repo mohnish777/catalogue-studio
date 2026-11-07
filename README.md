@@ -376,7 +376,29 @@ viewModelScope ties the request to the ViewModel's lifetime, so clearing its Vie
 
 Five focused JVM tests use an injected fake source, deferred responses, a test Main dispatcher and Turbine. They verify loading → mapped success, typed failure, empty live success, a single request shared by two collectors, and cancellation on ViewModelStore.clear with no late state/error. Tests close the ViewModelStore and restore Main. They make no real backend requests and do not verify screen rendering. Full verification passed: 61 JVM tests, debug APK build and lint (24 dependency/configuration/manifest warnings, no errors).
 
-Only tests create the ViewModel in this chunk. Actions, search/category/retry behaviour, saved state, navigation events and Koin registration follow in 8C/8D; the launcher and galleries keep their existing behaviour.
+Only tests create the ViewModel. Slice 8C adds actions as described below; saved state and Koin registration follow in 8D. The launcher and galleries keep their existing behaviour.
+
+## Catalogue actions and request cancellation
+
+Slice 8C adds `CatalogueViewModel.onAction()`. The future Screen will pass button/text actions to this method; today JVM tests call it with a fake source. The flow is action → update draft or start request → CatalogueRemoteDataSource → typed result → mapped CatalogueState → StateFlow collectors. The backend owns matching, featured selection and result ordering; the ViewModel does not filter products locally.
+
+| Action | Behaviour |
+| --- | --- |
+| Query change | Changes only the draft `query`; no request or change to applied filters/cards. |
+| Search | Trims the draft into `submittedQuery` and requests it within the selected category. Whitespace-only text omits the API query and restores browsing. |
+| Category selection | Selects the raw category (null means all), clears both draft/submitted search and loads that category's featured/additional products. |
+| Clear search | Clears draft/submitted search and reloads the current category. |
+| Clear filters | Clears category and both search values, then loads unfiltered home. |
+| Retry | Repeats the submitted filters; an edited but unsent draft is preserved and not applied. |
+| Product click | Sends NavigateToProduct(id) through a Channel exposed as a flow; no request or catalogue-state change. |
+
+**Assumption:** category links start category browsing and clear any search. Explicit Search is scoped to the currently selected category. Clearing search keeps that category; clearing all filters returns home. These choices fill gaps in the acceptance criteria and can be changed in this one action handler.
+
+Every load cancels `loadJob`, then publishes the requested filters, empty product lists, loading=true and error=null together. This prevents old cards appearing under new filters. Existing category choices and the last confirmed source mode remain available during loading/failure. Each coroutine captures its request arguments. After the suspend source returns, `ensureActive()` prevents a cancelled request from publishing even if its source returns a late success/error. Cancellation remains an exception, not a user-facing failure; no automatic retry is added. Success updates only response fields, preserving draft edits made while waiting.
+
+The small product-event handler was brought forward from 8D to keep action handling exhaustive without an unfinished branch. The Channel delivers each event to one collector and does not replay a consumed event. A send waits for a collector and is cancelled when the ViewModel is cleared. The future Root will collect events and navigate; this chunk adds no actual screen navigation or saved-state restoration.
+
+Focused tests use separate deferred responses for each request. They cover explicit search versus typing, request normalization, category/search clearing, submitted-filter retry, cooperative cancellation, out-of-order success/error from a source that ignores cancellation, lifecycle cancellation with both source behaviours, and a single navigation event without state mutation or reload. No real backend or emulator is needed for these controller tests. Verification passed: 71 JVM tests (15 CatalogueViewModel tests), debug APK build and lint (24 warnings, no errors). No new dependencies were added.
 
 ## Android backend address
 
