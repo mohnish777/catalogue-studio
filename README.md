@@ -4,7 +4,7 @@ An Android product catalogue built with Kotlin and Jetpack Compose. The planned 
 
 ## Current checkpoint
 
-The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio" and has pure Kotlin catalogue/enquiry contracts plus local enquiry validation ready for the later HTTP implementation. The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources, and Mailpit supplies a local test inbox. Enquiry sending and Android-to-backend requests are not implemented yet; no backend is needed to run the placeholder screen.
+The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio" and has catalogue/enquiry contracts, local enquiry validation, and catalogue JSON decoding/mapping ready for the later HTTP implementation. The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources, and Mailpit supplies a local test inbox. Enquiry sending and Android-to-backend requests are not implemented yet; no backend is needed to run the placeholder screen.
 
 ## Run in Android Studio
 
@@ -218,7 +218,7 @@ Open `http://127.0.0.1:3000/images/9.jpg` in a browser, adjusting the port if us
 
 The `com.cataloguestudio.domain` package is pure Kotlin, with no Android, Compose, Ktor or serialization imports:
 
-- `Models.kt` defines read-only product/catalogue properties and a typed `CatalogueMode` (`DEMO` or `LIVE`). The catalogue carries categories, featured and remaining products. IDs use `Long` so they can represent the backend's safe-integer IDs. Image URLs are strings; resolving backend-relative paths belongs to the later data implementation.
+- `Models.kt` defines read-only product/catalogue properties and a typed `CatalogueMode` (`DEMO` or `LIVE`). The catalogue carries categories, featured and remaining products. IDs use `Long` so they can represent the backend's safe-integer IDs. Image URLs are strings; the data mapper resolves backend-relative paths before returning products to domain callers.
 - `Result.kt` defines our two-parameter `Result<Data, Error>` with `Success(data)` and `Error(error)`, plus `DataError` cases for connection, timeout, invalid request, missing product, server, decoding and unknown failures. This is distinct from Kotlin's built-in `Result<T>`, which holds a Throwable on failure. HTTP/exception mapping is not implemented yet.
 - `CatalogueRemoteDataSource.kt` defines suspend functions for `getCatalogue(category, query)`, `getProduct(id)` and the future `sendEnquiry(enquiry)`. A null category/query means no filter. Sending returns `Result<Unit, DataError>` because success needs no domain payload. `suspend` allows coroutine callers to await an implementation; it does not automatically move work to a background thread.
 
@@ -246,6 +246,16 @@ JUnit 5 and AssertK are test-only dependencies managed by the version catalog; A
 
 Tests cover required fields, normalization, international names, malformed/header-like email input, single-line contact fields, optional/multiline messages and exact length boundaries.
 
+## Android catalogue JSON mapping
+
+Slice 6A adds `data/CatalogueDtos.kt` and `data/CatalogueMappers.kt`. DTOs describe the existing catalogue/product HTTP response fields and use `@Serializable`; the Kotlin serialization plugin generates their decoding code. Domain classes remain free of serialization annotations. DTOs/mappers are `internal` to the app module. Presentation will use the domain contract; package separation within this single module is by convention.
+
+The shared `catalogueJson` configuration ignores unknown additive fields while requiring all declared fields to be present and non-null. Malformed JSON or incompatible field shapes fail decoding rather than producing placeholder/default products. DTO decoding is not a replacement for the backend's semantic product validation.
+
+Mappers preserve the backend's category/product grouping and order. Only exact `demo` and `live` values map to `CatalogueMode`; unknown modes raise `SerializationException`. Product image paths must start with `/images/`; mapping resolves them against the configured backend URL, preserving scheme/host/port and handling base URLs with or without a trailing slash. For example, `/images/9.jpg` becomes `http://10.0.2.2:3000/images/9.jpg`. External/protocol-relative image URLs and malformed paths are rejected. A malformed image path or unknown mode will be mapped to a typed decoding failure when request handling is added.
+
+Current test flow: JSON string → `catalogueJson.decodeFromString<...Dto>()` → `toCatalogue(baseUrl)` / `toProduct(baseUrl)` → domain model. These tests run on the JVM without network access or an emulator. Ktor request handling, exception-to-DataError mapping and Koin startup are subsequent chunks. The Kotlin serialization plugin matches the existing Kotlin version; its JSON runtime version is pinned in the version catalog.
+
 ## Android backend address for later slices
 
 The generated `BuildConfig.BASE_URL` defaults to `http://10.0.2.2:3000`. Inside the Android Emulator, `10.0.2.2` reaches your computer's loopback interface. This address is configured now; no HTTP client or network request exists yet.
@@ -271,7 +281,11 @@ android/
         ├── debug/AndroidManifest.xml
         └── main/
             ├── AndroidManifest.xml
-            ├── java/com/cataloguestudio/MainActivity.kt
+            ├── java/com/cataloguestudio/
+            │   ├── MainActivity.kt
+            │   ├── domain/  Models, contracts, typed results and enquiry validation
+            │   ├── data/    Catalogue JSON DTOs and domain mapping
+            │   └── ui/      Theme and typography
             └── res/values/strings.xml
 
 backend/
