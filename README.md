@@ -4,7 +4,7 @@ An Android product catalogue built with Kotlin and Jetpack Compose. The planned 
 
 ## Current checkpoint
 
-The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio". The backend currently provides only a `/health` endpoint. Product features, email delivery and Android-to-backend requests are not implemented yet; no backend is needed to run the placeholder screen.
+The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio". The backend provides only a `/health` endpoint, and Mailpit supplies a local test inbox. Product features, enquiry sending and Android-to-backend requests are not implemented yet; no backend is needed to run the placeholder screen.
 
 ## Run in Android Studio
 
@@ -74,7 +74,32 @@ npm start
 
 Run either the development server or the compiled server at a time. If port 3000 is already occupied, use `PORT=3001 npm run dev` and request port 3001 instead.
 
-The server currently binds to your computer's loopback interface for local use. Mailpit, Docker and product routes belong to later chunks.
+The server currently binds to your computer's loopback interface for local use. It runs directly in Node; backend container startup and product routes belong to later chunks.
+
+## Start the local email inbox
+
+With Docker Desktop running, start Mailpit from the repository root:
+
+```sh
+docker compose up -d mailpit
+```
+
+Open [the Mailpit inbox](http://127.0.0.1:8025) in your browser.
+
+| Address | Purpose |
+| --- | --- |
+| `127.0.0.1:1025` | SMTP server that accepts test email |
+| `http://127.0.0.1:8025` | Browser inbox for inspecting captured messages |
+
+Mailpit captures email locally; it does not deliver to an external mailbox. This setup needs no email-provider account or credentials. Both published ports bind to your computer's loopback interface. Inbox data is disposable; no persistent storage is configured.
+
+The backend does not send email yet. A later enquiry slice will connect it to the SMTP address above.
+
+To stop the inbox:
+
+```sh
+docker compose stop mailpit
+```
 
 ## Android backend address for later slices
 
@@ -110,4 +135,6 @@ backend/
 └── src/
     ├── app.ts               Express application and HTTP routes
     └── server.ts            Port configuration and server startup
+
+compose.yaml                Local Mailpit inbox (backend container comes next)
 ```
