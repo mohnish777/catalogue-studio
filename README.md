@@ -4,7 +4,7 @@ An Android product catalogue built with Kotlin and Jetpack Compose. The planned 
 
 ## Current checkpoint
 
-The normal Android launcher now opens the complete catalogue through a typed navigation graph. Search, categories, featured picks and product cards use the local backend. Product taps load the full product-detail screen; its Enquire button opens a temporary enquiry destination with the same product ID, and Back returns through the stack. The enquiry form follows in Slice 14. The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources; Mailpit supplies a local test inbox. The backend now accepts validated enquiries and hands email to local Mailpit SMTP; the Android enquiry form remains pending. Start the backend to load products; connection failures offer Retry.
+The normal Android launcher now opens the complete catalogue through a typed navigation graph. Search, categories, featured picks and product cards use the local backend. Product taps load the full product-detail screen; its Enquire button opens the enquiry form for the same product ID, and Back returns through the stack. The form validates fields, retains failed submissions and shows confirmation after backend acceptance. The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources; Mailpit supplies a local test inbox. The backend now accepts validated enquiries and hands email to local Mailpit SMTP; the Android form now connects to that endpoint. Start the backend to load products; connection failures offer Retry.
 
 ## Run in Android Studio
 
@@ -535,6 +535,16 @@ Only successful backend acknowledgement sets isSent. Success removes saved conta
 The manifest still disables backups. `res/xml/data_extraction_rules.xml` also explicitly excludes all app-file domains from cloud backup/device transfer on Android 12+, following [Android's backup configuration guidance](https://developer.android.com/identity/data/autobackup). These file-transfer rules are separate from Android's saved-instance state used for form restoration.
 
 Quick Kotlin compilation and whitespace checks passed; no test suite or device walkthrough was run. Invalid/restored fields, duplicate-tap guards, failed-submit retention, sent restoration and interrupted-send behaviour remain focused coverage for Slice 15. The normal enquiry destination remains a shell until Slice 14 connects EnquiryRoot/Screen to this ViewModel.
+
+## Enquiry form and confirmation UI
+
+Slice 14 adds `ui/EnquiryScreen.kt` with EnquiryRoot and EnquiryScreen, replacing the last navigation shell in CatalogueApp. Root gets the existing EnquiryViewModel from Koin, lifecycle-collects state/events and forwards NavigateBack to popBackStack. BackHandler consumes system Back while sending, matching the ViewModel's action guard; the visible Back button is also disabled during that request.
+
+The screen uses a 720-dp maximum width, system/IME insets and Scaffold content padding. Its scrollable body renders product-loading recovery or the loaded product title/category/price plus name, email and optional message fields. Field values/errors come directly from state, and changes dispatch actions. Name/email use Next keyboard actions; email uses the email keyboard without autocorrect, and message permits multiple lines with a character count. Required/helper text and field errors use resources; send errors appear beside the retained form with a polite accessibility live region.
+
+Send enquiry stays in the bottom bar above the keyboard. Tapping clears focus/hides the keyboard and dispatches Submit; the ViewModel owns validation and the request. Sending disables fields and the button, displays Sending/progress and blocks Back. The launcher Activity explicitly uses adjustResize for keyboard insets. Only isSent replaces the form with Enquiry received and Back to product, which pops to the existing detail entry. No UI timer or optimistic success is used. Seven debug-only themed previews compile normal/narrow/larger-text forms, invalid fields, sending, retained send error and confirmation; they require no preview network calls.
+
+Quick Kotlin compilation and whitespace checks passed; no test suite or device walkthrough was run for this chunk. Actual keyboard scrolling, validation/failure recovery, Back, duplicate-tap behaviour, saved-state restoration and the Android → backend → Mailpit → confirmation walkthrough remain Slice 15. Start Mailpit and the backend, rebuild/run Android, then use any product's Enquire button to review the form.
 
 ## Android backend address
 

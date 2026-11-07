@@ -64,4 +64,17 @@
     <string name="navigation_back">Back</string>
     <string name="state_loading_product">Loading product…</string>
     <string name="product_about">About this product</string>
+    <string name="enquiry_headline">Let’s talk details.</string>
+    <string name="enquiry_intro">Ask about this product and leave your contact details for a reply.</string>
+    <string name="enquiry_name">Full name</string>
+    <string name="enquiry_email">Email address</string>
+    <string name="enquiry_message">Message (optional)</string>
+    <string name="enquiry_required">Required</string>
+    <string name="enquiry_reply_note">We’ll use this address to reply to your enquiry.</string>
+    <string name="enquiry_message_count">%1$d / %2$d characters</string>
+    <string name="enquiry_submit">Send enquiry</string>
+    <string name="enquiry_sending">Sending…</string>
+    <string name="enquiry_success_title">Enquiry received</string>
+    <string name="enquiry_success_message">Thank you for getting in touch. Your enquiry has been accepted.</string>
+    <string name="enquiry_back_to_product">Back to product</string>
 </resources>
