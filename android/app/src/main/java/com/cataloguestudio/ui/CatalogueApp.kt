@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -42,14 +41,11 @@ private fun NavGraphBuilder.catalogueGraph(navController: NavHostController) {
             navController.navigate(ProductDetailRoute(productId)) { launchSingleTop = true }
         })
     }
-    composable<ProductDetailRoute> { entry ->
-        val route = entry.toRoute<ProductDetailRoute>()
-        NavigationPlaceholder(
-            title = R.string.product_detail_title,
-            productId = route.productId,
+    composable<ProductDetailRoute> {
+        ProductDetailRoot(
             onBack = { navController.popBackStack() },
-            onEnquire = {
-                navController.navigate(EnquiryRoute(route.productId)) { launchSingleTop = true }
+            onNavigateToEnquiry = { productId ->
+                navController.navigate(EnquiryRoute(productId)) { launchSingleTop = true }
             },
         )
     }
@@ -63,13 +59,12 @@ private fun NavGraphBuilder.catalogueGraph(navController: NavHostController) {
     }
 }
 
-// Temporary destination shells. Slice 11 adds product details; Slice 14 adds the form.
+// Temporary enquiry shell; Slice 14 adds the form.
 @Composable
 private fun NavigationPlaceholder(
     @StringRes title: Int,
     productId: Long,
     onBack: () -> Unit,
-    onEnquire: (() -> Unit)? = null,
 ) {
     Surface(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -79,9 +74,6 @@ private fun NavigationPlaceholder(
         ) {
             Text(stringResource(title), style = MaterialTheme.typography.headlineLarge)
             Text(stringResource(R.string.navigation_product_reference, productId))
-            if (onEnquire != null) {
-                Button(onClick = onEnquire) { Text(stringResource(R.string.product_enquire)) }
-            }
             TextButton(onClick = onBack) { Text(stringResource(R.string.navigation_back)) }
         }
     }

@@ -62,4 +62,6 @@
     <string name="navigation_product_reference">Product #%1$d</string>
     <string name="product_enquire">Enquire about this product</string>
     <string name="navigation_back">Back</string>
+    <string name="state_loading_product">Loading product…</string>
+    <string name="product_about">About this product</string>
 </resources>

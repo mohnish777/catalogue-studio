@@ -4,7 +4,7 @@ An Android product catalogue built with Kotlin and Jetpack Compose. The planned 
 
 ## Current checkpoint
 
-The normal Android launcher now opens the complete catalogue through a typed navigation graph. Search, categories, featured picks and product cards use the local backend. Product taps open a temporary detail destination; its Enquire button opens a temporary enquiry destination with the same product ID, and Back returns through the stack. Product-detail content and the enquiry form follow in Slices 11 and 14. The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources; Mailpit supplies a local test inbox. Actual email sending remains Slice 12. Start the backend to load products; connection failures offer Retry.
+The normal Android launcher now opens the complete catalogue through a typed navigation graph. Search, categories, featured picks and product cards use the local backend. Product taps load the full product-detail screen; its Enquire button opens a temporary enquiry destination with the same product ID, and Back returns through the stack. The enquiry form follows in Slice 14. The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources; Mailpit supplies a local test inbox. Actual email sending remains Slice 12. Start the backend to load products; connection failures offer Retry.
 
 ## Run in Android Studio
 
@@ -485,6 +485,16 @@ Slice 10 adds `presentation/navigation/CatalogueRoutes.kt`: CatalogueRoute has n
 MainActivity → StudioTheme → CatalogueApp → rememberNavController/NavHost → catalogueGraph → CatalogueRoot. CatalogueRoot's existing lifecycle event collector invokes onNavigateToProduct(id), and the graph navigates to ProductDetailRoute(id). Its temporary shell decodes the ID with toRoute; Enquire forwards that ID to EnquiryRoute. Both shells offer Back via popBackStack. launchSingleTop avoids an additional top entry when the same destination/arguments are opened repeatedly. NavController stays in app/graph wiring; neither the catalogue Screen nor its ViewModel depends on it. Koin now scopes the catalogue ViewModel to its navigation back-stack entry, preserving catalogue state while that entry remains in the stack.
 
 The detail/enquiry shells show a title and product reference to make argument flow reviewable. They do not fetch product details, submit an enquiry or claim success. Slice 11 replaces the detail shell; Slice 14 replaces the enquiry shell. Normal launcher verification and complete forward/back/restoration checks are deferred to Slice 15 under the author's time constraint; Kotlin compilation (`:app:compileDebugKotlin --offline`) and whitespace checks passed. No test suite or emulator walkthrough was run for this chunk.
+
+## Product details
+
+Slice 11 replaces the product-detail navigation shell. `presentation/ProductDetailState.kt` holds state/actions/events, and `ProductDetailViewModel.kt` reads the productId using SavedStateHandle.toRoute<ProductDetailRoute>(). Navigation owns and restores the scalar argument. The ViewModel calls source.getProduct(id), maps a successful Product to the reviewed ProductUi, or maps typed failures (including not-found) to UiText. Retry cancels an earlier load, clears stale data and requests the same ID. Cancellation is checked before applying the result. Only a loaded product can emit NavigateToEnquiry(product.id); Back emits NavigateBack. Koin registers the ViewModel alongside CatalogueViewModel.
+
+In `ui/ProductDetailScreen.kt`, ProductDetailRoot lifecycle-collects state/events and forwards navigation callbacks to the graph. ProductDetailScreen accepts state/onAction, renders shared loading/error/image components and shows category, full title, price, rating/review count and description. Product content scrolls within the space left by Scaffold's top and bottom bars; the Enquire action stays outside that scroll area. It appears only for loaded content, so failures offer Retry rather than an enquiry for an unavailable product. The layout has system-bar insets and an 840-dp content-width cap. Three debug-only themed previews compile normal/narrow/larger-text loaded states with a bundled image and no preview network requests.
+
+Flow: product card → ProductDetailRoute(id) → navigation-scoped ViewModel/SavedStateHandle → getProduct(id) → GET /api/products/:id → ProductUi state → detail screen. Enquire → ViewModel event with the loaded product ID → Root callback → existing EnquiryRoute(id). That destination remains a shell until Slice 14; backend enquiry sending remains Slice 12.
+
+Kotlin compilation (`:app:compileDebugKotlin --offline`) and whitespace checks passed. No test suite or device walkthrough was run for this chunk. Detail failure/retry, saved-route restoration, Back-stack behaviour, long descriptions and the anchored action remain on the Slice 15 walkthrough list under the author's time constraint.
 
 ## Android backend address
 
