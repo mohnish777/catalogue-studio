@@ -352,6 +352,20 @@ adb -s emulator-5554 shell am start -n com.cataloguestudio/.ui.StateGalleryActiv
 
 The normal launcher still shows the placeholder. These components do not select application state or perform network calls; the catalogue ViewModel comes next in Slice 8. Verification passed: all 51 existing JVM tests, debug/release APK builds and lint (23 dependency/configuration/manifest warnings, no errors). Manual emulator checks covered 390 dp and 320 dp widths, 1.5x text, both button callbacks and the unfiltered state without a reset action. Release APK inspection confirmed StateGalleryActivity is absent. Emulator display/font overrides were restored after checks.
 
+## Catalogue presentation contract
+
+Slice 8A adds `presentation/CatalogueState.kt`, `CatalogueAction.kt` and `CatalogueEvent.kt`. These define the inputs/outputs for the future catalogue ViewModel; they do not handle actions or send requests yet.
+
+- CatalogueState holds draft query, submitted query, selected raw category, labelled category choices, featured/remaining ProductUi lists, optional confirmed source mode, loading and UiText error. Initial state is loading with mode unknown, so it does not imply demo mode or an empty catalogue before a response. CategoryUi keeps a raw filter value separate from its display label.
+- CatalogueAction describes query edits, explicit Search, clear search, category selection, clear all filters, retry and product clicks. A null category means all categories. Clear search and clear all filters are separate intents so the ViewModel can handle them explicitly.
+- CatalogueEvent currently contains NavigateToProduct(productId). Navigation will be a one-time event consumed by the future Root, rather than a persistent flag in state or a data-source side effect.
+
+The intended flow is Screen action → ViewModel handles it → StateFlow publishes a new CatalogueState → Screen renders shared components. A product click will emit an event to the Root for navigation. Handling, StateFlow, SavedStateHandle, cancellation, DI registration and screen wiring come in later chunks of Slice 8 and subsequent slices.
+
+The state derives productCount from both result sections, hasActiveFilters from the selected category/submitted query, and isEmpty only when loading has finished, no error exists and both product sections are empty. For example, editing query to “headphones” while submittedQuery is “drive” leaves the active search as “drive” until Search is handled. Editing alone is not an applied filter. Read-only lists are used as state snapshots; callers must replace lists rather than mutate their backing collections. Data-class copy is shallow.
+
+Five focused state tests cover loading/failure versus empty results, products in either section, draft versus applied search, independent category/search filters and derived counts across copies. These tests verify state interpretation, not HTTP orchestration; ViewModel tests will verify requests and cancellation when that code exists. No new dependencies or visible app changes are introduced.
+
 ## Android backend address
 
 The generated `BuildConfig.BASE_URL` defaults to `http://10.0.2.2:3000`. Inside the Android Emulator, `10.0.2.2` reaches your computer's loopback interface. Startup wiring supplies this address to the data module; no request is made by the placeholder screen yet.
@@ -382,7 +396,7 @@ android/
             │   ├── MainActivity.kt
             │   ├── domain/  Models, contracts, typed results and enquiry validation
             │   ├── data/    DTO mapping, Ktor/OkHttp client, typed requests, endpoints and di/
-            │   ├── presentation/  Product display models, UiText and error-message mapping
+            │   ├── presentation/  Display models, UiText/error mapping and catalogue state/actions/events
             │   └── ui/      Theme, text resolution, product cards, states and catalogue summary
             └── res/values/strings.xml
 
