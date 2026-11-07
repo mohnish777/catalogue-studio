@@ -1,5 +1,8 @@
 import express, { type ErrorRequestHandler } from "express";
 import { z } from "zod";
+import { rateLimit } from "express-rate-limit";
+import { enquirySchema } from "./enquiry.js";
+import { createSmtpMailer, type EnquiryMailer } from "./mail.js";
 import { DemoProductSource, type Product, type ProductSource } from "./catalogue.js";
 import { buildCatalogue } from "./catalogue-rules.js";
 import { loadProductImage } from "./product-images.js";
@@ -22,6 +25,7 @@ function publicProduct(product: Product): Product {
 export function createApp(
   source: ProductSource = new DemoProductSource(),
   fetchImage: typeof fetch = fetch,
+  mailer: EnquiryMailer = createSmtpMailer(),
 ) {
   const app = express();
   app.disable("x-powered-by");
@@ -100,6 +104,50 @@ export function createApp(
     }
   });
 
+  app.post(
+    "/api/enquiries",
+    rateLimit({
+      windowMs: 60_000,
+      limit: 10,
+      standardHeaders: "draft-8",
+      legacyHeaders: false,
+      message: { error: { code: "TOO_MANY_ENQUIRIES", message: "Please wait a minute before trying again." } },
+    }),
+    (request, response, next) => {
+      if (!request.is("application/json")) {
+        response.status(415).json({ error: { code: "JSON_REQUIRED", message: "Send an application/json body." } });
+        return;
+      }
+      next();
+    },
+    express.json({ limit: "16kb", strict: true }),
+    async (request, response) => {
+      const enquiry = enquirySchema.safeParse(request.body);
+      if (!enquiry.success) {
+        response.status(400).json({
+          error: { code: "INVALID_ENQUIRY", message: "Check the product, name, email and message (up to 2000 characters)." },
+        });
+        return;
+      }
+      const products = await source.list();
+      const product = products.find((item) => item.id === enquiry.data.productId);
+      if (!product) {
+        response.status(404).json({ error: { code: "PRODUCT_NOT_FOUND", message: "Product not found." } });
+        return;
+      }
+      try {
+        await mailer.send(enquiry.data, product);
+        response.status(201).json({ status: "accepted" });
+      } catch {
+        // Do not log customer data, message content or SMTP credentials.
+        console.error("Enquiry SMTP handoff failed.");
+        response.status(503).json({
+          error: { code: "EMAIL_UNAVAILABLE", message: "We could not confirm your enquiry. Please try again." },
+        });
+      }
+    },
+  );
+
   app.use((_request, response) => {
     response.status(404).json({
       error: { code: "ROUTE_NOT_FOUND", message: "Route not found." },
@@ -108,6 +156,13 @@ export function createApp(
 
   // Express 5 forwards rejected async handlers here. Never expose file paths or stacks.
   const handleError: ErrorRequestHandler = (error, _request, response, _next) => {
+    if (error.type === "entity.parse.failed" || error.type === "entity.too.large" || error.status === 415) {
+      const status = error.type === "entity.too.large" ? 413 : error.status === 415 ? 415 : 400;
+      response.status(status).json({
+        error: { code: "INVALID_JSON_BODY", message: "Send valid UTF-8 JSON no larger than 16 KB." },
+      });
+      return;
+    }
     console.error("Catalogue request failed:", error);
     response.status(500).json({
       error: { code: "CATALOGUE_UNAVAILABLE", message: "Unable to load products. Please try again." },

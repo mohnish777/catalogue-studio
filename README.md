@@ -4,7 +4,7 @@ An Android product catalogue built with Kotlin and Jetpack Compose. The planned 
 
 ## Current checkpoint
 
-The normal Android launcher now opens the complete catalogue through a typed navigation graph. Search, categories, featured picks and product cards use the local backend. Product taps load the full product-detail screen; its Enquire button opens a temporary enquiry destination with the same product ID, and Back returns through the stack. The enquiry form follows in Slice 14. The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources; Mailpit supplies a local test inbox. Actual email sending remains Slice 12. Start the backend to load products; connection failures offer Retry.
+The normal Android launcher now opens the complete catalogue through a typed navigation graph. Search, categories, featured picks and product cards use the local backend. Product taps load the full product-detail screen; its Enquire button opens a temporary enquiry destination with the same product ID, and Back returns through the stack. The enquiry form follows in Slice 14. The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources; Mailpit supplies a local test inbox. The backend now accepts validated enquiries and hands email to local Mailpit SMTP; the Android enquiry form remains pending. Start the backend to load products; connection failures offer Retry.
 
 ## Run in Android Studio
 
@@ -102,7 +102,7 @@ npm start
 
 Run either the development server or the compiled server at a time. If port 3000 is already occupied, use `PORT=3001 npm run dev` and request port 3001 instead.
 
-Direct execution defaults to your computer's loopback interface (`HOST=127.0.0.1`). The container sets `HOST=0.0.0.0` through its Dockerfile. Enquiry sending belongs to a later slice.
+Direct execution defaults to your computer's loopback interface (`HOST=127.0.0.1`). The container sets `HOST=0.0.0.0` through its Dockerfile. The enquiry endpoint sends through local Mailpit SMTP as described below.
 
 ## Start the local email inbox
 
@@ -121,7 +121,7 @@ Open [the Mailpit inbox](http://127.0.0.1:8025) in your browser.
 
 Mailpit captures email locally; it does not deliver to an external mailbox. This setup needs no email-provider account or credentials. Both published ports bind to your computer's loopback interface. Inbox data is disposable; no persistent storage is configured.
 
-The backend does not send email yet. A later enquiry slice will connect it to the SMTP address above.
+The backend now sends enquiry email to this SMTP server. Direct development defaults to 127.0.0.1:1025; Compose uses the mailpit service hostname.
 
 To stop the inbox:
 
@@ -290,7 +290,7 @@ Null filters are omitted; non-null values (including a blank query) are forwarde
 
 `data/EnquiryRequestDto.kt` maps the domain Enquiry into a serializable request with exactly productId/name/email/message. The empty optional message is included explicitly. This transport mapping preserves the supplied values; the future form uses EnquiryValidator to produce normalized fields, and the backend will validate independently.
 
-The real backend does not yet implement POST `/api/enquiries`; it returns 404 today, which the data source reports as NOT_FOUND. Enquiry success tests use simulated 201 responses and do not establish SMTP delivery. Slice 12 adds the endpoint and real local email integration.
+The backend now implements POST `/api/enquiries` in Slice 12. Earlier Android enquiry protocol tests use simulated 201 responses; Slice 12 separately verifies real local SMTP acceptance and Mailpit capture.
 
 Endpoint tests verify methods/paths, absent and combined filters, special-character query encoding, domain response mapping, exact enquiry JSON/escaping, optional empty message, server failures without retry, mapper failures and cancellation. These endpoint tests use simulated responses. Slice 6D wires the production engine; screens do not call the data source yet.
 
@@ -495,6 +495,34 @@ In `ui/ProductDetailScreen.kt`, ProductDetailRoot lifecycle-collects state/event
 Flow: product card → ProductDetailRoute(id) → navigation-scoped ViewModel/SavedStateHandle → getProduct(id) → GET /api/products/:id → ProductUi state → detail screen. Enquire → ViewModel event with the loaded product ID → Root callback → existing EnquiryRoute(id). That destination remains a shell until Slice 14; backend enquiry sending remains Slice 12.
 
 Kotlin compilation (`:app:compileDebugKotlin --offline`) and whitespace checks passed. No test suite or device walkthrough was run for this chunk. Detail failure/retry, saved-route restoration, Back-stack behaviour, long descriptions and the anchored action remain on the Slice 15 walkthrough list under the author's time constraint.
+
+## Enquiry endpoint and local SMTP
+
+Slice 12 adds `backend/src/enquiry.ts` and `backend/src/mail.ts`, and connects POST `/api/enquiries` in `app.ts`. The route expects application/json, allows at most 16 KB and rejects unknown fields. productId must be a positive safe integer; name is required/up to 100 characters, email is required/valid/up to 254, and optional message is trimmed/up to 2000. Name/email reject control characters before trimming. The backend validates independently of Android, looks up the product and refuses unknown IDs before sending. An in-memory per-IP limit allows ten attempts per minute, including invalid attempts; it resets with the process and is not shared across servers.
+
+The mailer uses Nodemailer SMTP with a fixed configured sender/recipient and customer Reply-To. Its plain-text body includes product ID/title/price, name, email and message. User input cannot choose recipients or supply attachments/HTML. Connection/greeting/DNS timeouts are 3 seconds and socket-idle timeout is 5 seconds; these are phase/idle bounds, not a single end-to-end deadline. SMTP credentials/content are not logged. SMTP acceptance yields 201 `{ "status": "accepted" }`; a failed or unconfirmed handoff yields 503 EMAIL_UNAVAILABLE. Input, missing product, media/body and rate-limit failures return 400, 404, 415/413 and 429 respectively. Product-source failures retain the existing server-error handling.
+
+Flow: Android's future form → POST body → rate/body/schema validation → product lookup → mailer.send → SMTP server accepts message → HTTP 201. There is no database/outbox or automatic resend; a lost acknowledgement followed by manual retry can duplicate email. Mailpit captures locally and does not deliver to an external mailbox. The Android form and success screen remain Slices 13/14.
+
+Direct development works with Mailpit's defaults. Optional configuration:
+
+```sh
+cd backend
+cp .env.example .env
+npm run dev
+```
+
+The dev/start scripts load an existing .env; .env is ignored by Git. SMTP_HOST/SMTP_PORT default to 127.0.0.1/1025; SMTP_SECURE defaults to false. MAIL_FROM defaults to catalogue@catalogue-studio.test and SALES_EMAIL to sales@catalogue-studio.test. SMTP_USER and SMTP_PASS must both be set or both absent. Compose sets SMTP_HOST=mailpit; rebuild the backend container to pick up code/dependencies. No provider account or credentials are required for Mailpit.
+
+With the backend and Mailpit running, this sample enquiry appears in the local inbox:
+
+```sh
+curl --fail-with-body http://127.0.0.1:3000/api/enquiries \
+  -H 'Content-Type: application/json' \
+  -d '{"productId":9,"name":"Catalogue Review","email":"review@example.test","message":"Please share more information."}'
+```
+
+Focused verification passed: TypeScript build, whitespace check, invalid/header/unknown-field requests, unknown product, malformed/oversized JSON, rate limiting, actual SMTP acceptance and unavailable-SMTP 503. The captured Mailpit message was checked for sender, sales recipient, customer Reply-To and product/contact/message content. Isolated ephemeral HTTP servers were closed afterward; the existing backend/Mailpit services stayed running. The real development server now returns INVALID_ENQUIRY for invalid input, confirming it picked up the route. No broad test suite was run; repeatable automated coverage and the Android-to-inbox walkthrough remain Slice 15. The sample capture is left in the inbox for review.
 
 ## Android backend address
 
