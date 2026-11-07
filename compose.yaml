@@ -2,7 +2,7 @@ services:
   backend:
     build: ./backend
     environment:
-      PRODUCT_SOURCE: ${PRODUCT_SOURCE-demo}
+      PRODUCT_SOURCE: ${PRODUCT_SOURCE-live}
       SMTP_HOST: mailpit
       SMTP_PORT: "1025"
       SMTP_SECURE: "false"

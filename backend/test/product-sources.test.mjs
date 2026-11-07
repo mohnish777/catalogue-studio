@@ -15,8 +15,8 @@ const upstreamProduct = {
 };
 const jsonResponse = (data = [upstreamProduct]) => Response.json(data);
 
-test("source selection defaults to demo and rejects misspelled or empty modes", () => {
-  assert.ok(createProductSource() instanceof DemoProductSource);
+test("source selection defaults to live and rejects misspelled or empty modes", () => {
+  assert.ok(createProductSource() instanceof LiveProductSource);
   assert.ok(createProductSource("demo") instanceof DemoProductSource);
   assert.ok(createProductSource("live") instanceof LiveProductSource);
   for (const mode of ["LIVE", "", "unknown"]) {

@@ -52,4 +52,24 @@ The new complete walkthrough covered one physical API 36 phone. New detail/form 
 
 Duplicate in-flight submissions and restored sent-state guards have focused JVM coverage; there was no physical stress test. Draft process restoration was exercised on the phone. One matching captured email establishes the observed outcome, not a cross-request exactly-once guarantee: there is no database, durable outbox or server idempotency, so a lost acknowledgement followed by manual retry can duplicate email.
 
-Live-provider access, external delivery, signed release deployment and HTTPS release runtime were not verified. The unsigned release build is compilation evidence; plain HTTP remains debug-only. Hosted CI awaits Slice 16 setup and the author's push. The author owns review, commits, pushes and PR creation.
+At the Slice 15 checkpoint, live-provider access, external delivery, signed release deployment and HTTPS release runtime were not verified. See the later live-mode/media check below for updated provider evidence. The unsigned release build is compilation evidence; plain HTTP remains debug-only. The Slice 16 workflow is prepared and statically validated; hosted CI awaits the author's push. The author owns review, commits, pushes and PR creation.
+
+
+## Slice 16 handoff checks
+
+The author committed Slice 15 as `88a04ec`. Slice 16 changes documentation and adds CI; application behaviour and dependencies are unchanged, so the Slice 15 app test evidence above was not rerun unnecessarily.
+
+- Official actionlint v1.7.12 validated .github/workflows/verify.yml with no findings. Workflow action versions/inputs were checked against their official action manifests. The Android job requests platform-tools, Platform 36 and Build Tools 36.0.0, excluding the obsolete tools package. Inputs were checked against the [official SDK action](https://github.com/android-actions/setup-android) and [Gradle action](https://github.com/gradle/actions/tree/v4/setup-gradle).
+- A fresh Docker image build passed, including npm ci and TypeScript compilation. An isolated temporary container returned health success, the demo catalogue (five featured / eight remaining) and bundled image bytes. It was stopped afterward; the existing backend/Mailpit stayed running.
+- Current README/decision/AI/plan links resolve, screenshot files were checked and git diff --check passed. Historical implementation notes preserve earlier checkpoint wording and are clearly marked as history.
+- All four challenge PDF pages were reviewed against docs/SUBMISSION_CHECKLIST.md. The author confirmed the nine-hour rough split: planning 1 hour, building 5 hours, testing/debugging 1.5 hours and reviewing 1.5 hours. Codex was the only AI tool used; exact historical model selections remain unavailable.
+- Hosted CI, a fresh emulator setup timed under ten minutes, signed release deployment and author PR/reviewer access remain unverified or author-owned. These are not marked complete from local evidence.
+
+
+## Live default and PR-media follow-up — 7 November 2026
+
+At the author's request, normal server/source selection, Compose and .env.example now default to live Fake Store products. Demo remains an explicit mode for offline-provider review and deterministic automation; there is no silent fallback. The source-selection regression test now expects live by default; all 46 backend tests passed again, including real local SMTP capture. Android code/build configuration did not change.
+
+Actual Fake Store /products returned HTTP 200. An isolated live backend returned mode=live, five featured and fifteen remaining products; its product image route returned HTTP 200 image/png (273,291 bytes). An actual phone walkthrough against that live backend verified product details, empty-field validation, sending and confirmation. The captured Mailpit message matched the live product and synthetic pr.review@example.test Reply-To. The normal development backend now reports live mode too.
+
+Recorded screenshots and a silent 59-second H.264 MP4 (approximately 1.5 MB) are included under docs/screenshots and docs/media. The recording was decoded and its first/middle/final frames inspected, including the final confirmation. GitHub attachment upload/inline video playback remains an author publication step. USB forwarding was restored after recording; the owned temporary live backend was stopped. The earlier 91-test Android evidence and controlled demo failure/restoration evidence remain unchanged.

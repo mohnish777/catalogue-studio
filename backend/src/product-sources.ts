@@ -60,7 +60,7 @@ export class LiveProductSource implements ProductSource {
   }
 }
 
-export function createProductSource(mode = "demo"): ProductSource {
+export function createProductSource(mode = "live"): ProductSource {
   switch (mode) {
     case "demo": return new DemoProductSource();
     case "live": return new LiveProductSource();
