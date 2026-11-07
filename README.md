@@ -13,6 +13,8 @@ The Android project setup is ready. The app launches a minimal screen displaying
 3. Let Gradle sync. The wrapper selects Gradle 8.14.3 automatically.
 4. Select the `app` run configuration and an emulator or device running API 26 or newer, then press Run.
 
+The project pins the Gradle build process to a locally installed JDK 17 through `android/gradle/gradle-daemon-jvm.properties`. This is separate from the Java/Kotlin bytecode targets in the app build script. Use a full JDK containing `bin/jlink`; a runtime-only Java installation can fail Android's `JdkImageTransform` even when Java itself starts successfully.
+
 Android Studio records your SDK location in `android/local.properties`, which is ignored by Git. For command-line builds, either set `ANDROID_HOME` to your SDK directory or create that file with `sdk.dir=/absolute/path/to/Android/sdk`.
 
 ## Build from the command line

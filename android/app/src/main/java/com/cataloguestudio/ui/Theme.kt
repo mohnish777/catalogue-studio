@@ -33,5 +33,9 @@ private val StudioColors =
 
 @Composable
 fun StudioTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = StudioColors, content = content)
+    MaterialTheme(
+        colorScheme = StudioColors,
+        typography = StudioTypography,
+        content = content,
+    )
 }
