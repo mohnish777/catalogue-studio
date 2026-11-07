@@ -322,6 +322,22 @@ A future ViewModel will store the mapped UiText in screen state. The Compose UI 
 
 The compiler/resource build checks the exhaustive mappings and resource references; the existing JVM suite runs unchanged. No dependencies or tests that merely duplicate the mapping table were added. Device rendering is not verified in this chunk. Shared components and screen consumers follow in later chunks, so the placeholder screen remains the same.
 
+## Product cards and image states
+
+Slice 7C adds `ui/ProductCard.kt` and `ui/ProductImage.kt`. ProductCard accepts a ProductUi, a click callback and a Modifier. It displays the resource-backed category, a two-line title, formatted USD price, rating and plural-aware review count. The full title stays in accessibility text when visually ellipsized. The card forwards clicks to its caller; it does not navigate or fetch catalogue data.
+
+ProductImage uses Coil 3.3.0 with its OkHttp network module and ContentScale.Fit so product images keep their proportions. Its image area stays the same size while loading, succeeding or showing “Image unavailable”. Loading/error content uses our theme and string resources; a failed image does not replace product information or disable the card. Card images are decorative for accessibility because the adjacent title identifies the product; standalone callers can supply a content description. The star icon is decorative, while a “Rated … out of 5” semantic label explains the rating. Coil manages image requests separately from the Ktor JSON data source. The small catalogue uses SubcomposeAsyncImage for clear loading/error slots; reconsider subcomposition if list scale/performance warrants it.
+
+The debug-only `ui/ProductCardGalleryActivity.kt` provides a review gallery and three Android Studio previews: standard phone, 320 dp width and larger text. Previews use a bundled debug fixture copied from the existing backend image, with a forced missing-image response; they need no backend. Running the gallery on a device uses the configured backend URL for a real image and an intentionally missing product image, plus a standalone loading state. Card taps show a confirmation toast. The gallery, preview image and preview tooling are excluded from release builds.
+
+To review the gallery, start the backend, install the debug APK, then run (replace the serial as needed):
+
+```sh
+adb -s emulator-5554 shell am start -n com.cataloguestudio/.ui.ProductCardGalleryActivity
+```
+
+The normal launcher still shows the placeholder. The catalogue screen and its ViewModel follow in their own slices. This chunk was checked on an emulator at 390 dp and 320 dp widths and at 1.5x text size, including real backend image loading, a missing image and a card tap. The existing 51 JVM tests, debug/release builds and lint passed (23 dependency/configuration/manifest warnings, no source errors). Release APK inspection confirmed the gallery class and preview image are absent. Emulator size/density/font overrides were restored after the checks.
+
 ## Android backend address
 
 The generated `BuildConfig.BASE_URL` defaults to `http://10.0.2.2:3000`. Inside the Android Emulator, `10.0.2.2` reaches your computer's loopback interface. Startup wiring supplies this address to the data module; no request is made by the placeholder screen yet.
@@ -353,7 +369,7 @@ android/
             │   ├── domain/  Models, contracts, typed results and enquiry validation
             │   ├── data/    DTO mapping, Ktor/OkHttp client, typed requests, endpoints and di/
             │   ├── presentation/  Product display models, UiText and error-message mapping
-            │   └── ui/      Theme, typography and Compose text resolution
+            │   └── ui/      Theme, text resolution, product cards and image states
             └── res/values/strings.xml
 
 backend/

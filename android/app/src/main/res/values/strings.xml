@@ -18,4 +18,12 @@
     <string name="error_email_too_long">This email address is too long. Please check it.</string>
     <string name="error_email_invalid">Please enter a valid email address.</string>
     <string name="error_message_too_long">Please shorten your message.</string>
+    <string name="product_open">View %1$s</string>
+    <string name="product_rating">Rated %1$s out of 5</string>
+    <string name="product_image_loading">Loading image</string>
+    <string name="product_image_unavailable">Image unavailable</string>
+    <plurals name="product_reviews">
+        <item quantity="one">%1$d review</item>
+        <item quantity="other">%1$d reviews</item>
+    </plurals>
 </resources>
