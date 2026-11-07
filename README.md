@@ -44,7 +44,35 @@ Run Android static checks with:
 ./gradlew lintDebug --console=plain
 ```
 
-## Run the local backend
+## Run the backend and inbox with Docker
+
+With Docker Desktop running, start both services from the repository root:
+
+```sh
+docker compose up --build -d --wait
+```
+
+Open [backend health](http://127.0.0.1:3000/health) and [the Mailpit inbox](http://127.0.0.1:8025). Compose waits for Mailpit to be healthy before starting the backend; the backend has its own `/health` check. Docker supplies Node 22, so a host Node installation is only needed for direct backend development below.
+
+The backend image compiles TypeScript in a build stage, then runs the compiled JavaScript with production dependencies as the non-root `node` user. The server listens on `0.0.0.0` inside the container so Docker can forward requests to it. The published host ports remain bound to `127.0.0.1`.
+
+If a direct development server already uses port 3000, either stop that server or choose a different Docker host port:
+
+```sh
+BACKEND_PORT=3001 docker compose up --build -d --wait
+```
+
+Then use `http://127.0.0.1:3001/health`. This changes the host port only; the container still listens on port 3000.
+
+Useful commands:
+
+```sh
+docker compose ps
+docker compose logs backend
+docker compose stop
+```
+
+## Run the backend directly for development
 
 Use Node.js 22 or newer. With nvm installed, select the project's version from the repository root:
 
@@ -74,7 +102,7 @@ npm start
 
 Run either the development server or the compiled server at a time. If port 3000 is already occupied, use `PORT=3001 npm run dev` and request port 3001 instead.
 
-The server currently binds to your computer's loopback interface for local use. It runs directly in Node; backend container startup and product routes belong to later chunks.
+Direct execution defaults to your computer's loopback interface (`HOST=127.0.0.1`). The container sets `HOST=0.0.0.0` through its Dockerfile. Product routes and enquiry sending belong to later slices.
 
 ## Start the local email inbox
 
@@ -111,7 +139,7 @@ Override it at build time when needed:
 ./gradlew assembleDebug -PapiBaseUrl=https://your-backend.example
 ```
 
-For a physical device using a future local backend, use your computer's reachable LAN address instead of `10.0.2.2`. Plain HTTP is permitted only by the debug manifest. A release build needs an HTTPS backend address.
+For a physical device using a future local backend, a LAN address also requires explicitly making the backend reachable on that interface; the defaults above expose only loopback. Plain HTTP is permitted only by the debug manifest. A release build needs an HTTPS backend address.
 
 ## Project structure
 
@@ -130,11 +158,13 @@ android/
             └── res/values/strings.xml
 
 backend/
+├── Dockerfile               TypeScript build and production runtime stages
+├── .dockerignore            Excludes local dependencies, build output and secrets
 ├── package.json             Node dependencies and scripts
 ├── tsconfig.json            TypeScript compiler settings
 └── src/
     ├── app.ts               Express application and HTTP routes
     └── server.ts            Port configuration and server startup
 
-compose.yaml                Local Mailpit inbox (backend container comes next)
+compose.yaml                Local backend and Mailpit startup
 ```
