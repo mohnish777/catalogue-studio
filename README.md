@@ -4,7 +4,7 @@ An Android product catalogue built with Kotlin and Jetpack Compose. The planned 
 
 ## Current checkpoint
 
-The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio" and has catalogue/enquiry contracts, local enquiry validation, and catalogue JSON decoding/mapping ready for the later HTTP implementation. The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources, and Mailpit supplies a local test inbox. Enquiry sending and Android-to-backend requests are not implemented yet; no backend is needed to run the placeholder screen.
+The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio" and has domain contracts, enquiry validation, JSON mapping, and tested Ktor client/request handling ready for endpoint implementation. The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources, and Mailpit supplies a local test inbox. Enquiry sending and app-to-backend requests are not connected yet; no backend is needed to run the placeholder screen.
 
 ## Run in Android Studio
 
@@ -219,7 +219,7 @@ Open `http://127.0.0.1:3000/images/9.jpg` in a browser, adjusting the port if us
 The `com.cataloguestudio.domain` package is pure Kotlin, with no Android, Compose, Ktor or serialization imports:
 
 - `Models.kt` defines read-only product/catalogue properties and a typed `CatalogueMode` (`DEMO` or `LIVE`). The catalogue carries categories, featured and remaining products. IDs use `Long` so they can represent the backend's safe-integer IDs. Image URLs are strings; the data mapper resolves backend-relative paths before returning products to domain callers.
-- `Result.kt` defines our two-parameter `Result<Data, Error>` with `Success(data)` and `Error(error)`, plus `DataError` cases for connection, timeout, invalid request, missing product, server, decoding and unknown failures. This is distinct from Kotlin's built-in `Result<T>`, which holds a Throwable on failure. HTTP/exception mapping is not implemented yet.
+- `Result.kt` defines our two-parameter `Result<Data, Error>` with `Success(data)` and `Error(error)`, plus `DataError` cases for connection, timeout, invalid request, missing product, server, decoding and unknown failures. This is distinct from Kotlin's built-in `Result<T>`, which holds a Throwable on failure. The data layer's safeRequest helper translates HTTP/transport/decoding failures into these cases.
 - `CatalogueRemoteDataSource.kt` defines suspend functions for `getCatalogue(category, query)`, `getProduct(id)` and the future `sendEnquiry(enquiry)`. A null category/query means no filter. Sending returns `Result<Unit, DataError>` because success needs no domain payload. `suspend` allows coroutine callers to await an implementation; it does not automatically move work to a background thread.
 
 The intended flow is ViewModel → `CatalogueRemoteDataSource` → typed `Result` → UI state. In Slice 6 a Ktor implementation will translate HTTP DTOs into these domain models and map expected transport failures into `DataError`. The UI can then use an exhaustive `when` over success/error. No implementation or caller is connected in this chunk, and no repository or use-case wrapper is added for this single backend source.
@@ -254,11 +254,31 @@ The shared `catalogueJson` configuration ignores unknown additive fields while r
 
 Mappers preserve the backend's category/product grouping and order. Only exact `demo` and `live` values map to `CatalogueMode`; unknown modes raise `SerializationException`. Product image paths must start with `/images/`; mapping resolves them against the configured backend URL, preserving scheme/host/port and handling base URLs with or without a trailing slash. For example, `/images/9.jpg` becomes `http://10.0.2.2:3000/images/9.jpg`. External/protocol-relative image URLs and malformed paths are rejected. A malformed image path or unknown mode will be mapped to a typed decoding failure when request handling is added.
 
-Current test flow: JSON string → `catalogueJson.decodeFromString<...Dto>()` → `toCatalogue(baseUrl)` / `toProduct(baseUrl)` → domain model. These tests run on the JVM without network access or an emulator. Ktor request handling, exception-to-DataError mapping and Koin startup are subsequent chunks. The Kotlin serialization plugin matches the existing Kotlin version; its JSON runtime version is pinned in the version catalog.
+Mapping test flow: JSON string → `catalogueJson.decodeFromString<...Dto>()` → `toCatalogue(baseUrl)` / `toProduct(baseUrl)` → domain model. These tests run on the JVM without network access or an emulator. The Kotlin serialization plugin matches the existing Kotlin version; its JSON runtime version is pinned in the version catalog.
+
+## Android HTTP client and typed failures
+
+Slice 6B adds `data/CatalogueHttpClient.kt` and `data/SafeRequest.kt`. The client factory accepts a base URL and an injected Ktor engine, configures JSON request/response handling using `catalogueJson`, and sets a 15-second request timeout, five-second connect timeout and 15-second socket inactivity timeout. Redirect following and automatic exceptions for HTTP error statuses are disabled, so the request helper handles statuses explicitly.
+
+`safeRequest(execute, decode)` runs an HTTP call, checks its status and decodes/maps successful responses inside one guarded block. The future endpoint implementation supplies both lambdas. An empty success can use `decode = { Unit }`. Error bodies are not decoded as success DTOs.
+
+| Failure | Domain error |
+| --- | --- |
+| HTTP 400 | BAD_REQUEST |
+| HTTP 404 | NOT_FOUND |
+| HTTP 408/504, Ktor request/connect/socket timeout | REQUEST_TIMEOUT |
+| Other HTTP 5xx | SERVER_ERROR |
+| Malformed/incompatible JSON, unsupported response type or mapper SerializationException | SERIALIZATION |
+| DNS/connection/I/O failure | NO_INTERNET (a connection failure classification, not proof the device is offline) |
+| Other status/exception | UNKNOWN |
+
+Coroutine cancellation is rethrown rather than converted into an error result. The helper also checks that the caller's coroutine remains active when an engine throws another exception during cancellation. No automatic retry is configured.
+
+Tests use [Ktor MockEngine](https://ktor.io/docs/client-testing.html) and a coroutine test dispatcher. They exercise the actual client configuration, JSON decoding/mapping, status handling, connection failures, cancellation and a delayed request timeout using virtual time. Tests close the client and injected engine. This is not a real socket, Android engine or backend connectivity check. Endpoint calls follow in 6C; the production engine and Koin/Application wiring follow in 6D.
 
 ## Android backend address for later slices
 
-The generated `BuildConfig.BASE_URL` defaults to `http://10.0.2.2:3000`. Inside the Android Emulator, `10.0.2.2` reaches your computer's loopback interface. This address is configured now; no HTTP client or network request exists yet.
+The generated `BuildConfig.BASE_URL` defaults to `http://10.0.2.2:3000`. Inside the Android Emulator, `10.0.2.2` reaches your computer's loopback interface. This address will be supplied to the client during startup wiring; no request is made by the placeholder screen yet.
 
 Override it at build time when needed:
 
@@ -284,7 +304,7 @@ android/
             ├── java/com/cataloguestudio/
             │   ├── MainActivity.kt
             │   ├── domain/  Models, contracts, typed results and enquiry validation
-            │   ├── data/    Catalogue JSON DTOs and domain mapping
+            │   ├── data/    JSON mapping, Ktor client configuration and typed request handling
             │   └── ui/      Theme and typography
             └── res/values/strings.xml
 
