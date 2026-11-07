@@ -144,6 +144,16 @@ npm test
 
 The test command compiles TypeScript and uses Node's built-in test runner against the compiled module. Tests cover loading the sample dataset, rejecting malformed product values and reporting missing fixture files. Fixture paths resolve relative to the module, so loading does not depend on the directory the server is launched from.
 
+`backend/src/catalogue-rules.ts` applies catalogue rules to already validated products without file or network access:
+
+- Home features the available editorial IDs `1, 2, 5, 7, 9` in that order. Missing picks are skipped, without replacements.
+- A selected category features up to two products by descending rating, breaking ties by ascending ID. One product is reserved for the remaining list; a category with a single product has no featured section.
+- Featured products are excluded from the remaining list, whose original source order is preserved.
+- A nonblank search matches a case-insensitive substring in the title or description, optionally combined with a category. Search results have no featured section. Surrounding whitespace is trimmed; blank search behaves like browsing.
+- Category choices always come from the full dataset, uniquely and alphabetically sorted. Unknown categories and searches with no matches return empty product lists.
+
+The returned object contains `categories`, `featured` and `remaining`. Focused tests cover editorial selection, category ranking/ties, small categories, search, combined filters and input immutability. HTTP wiring and the UI's explicit search-submit/category-change behaviour remain later chunks.
+
 ## Android backend address for later slices
 
 The generated `BuildConfig.BASE_URL` defaults to `http://10.0.2.2:3000`. Inside the Android Emulator, `10.0.2.2` reaches your computer's loopback interface. This address is configured now; no HTTP client or network request exists yet.
