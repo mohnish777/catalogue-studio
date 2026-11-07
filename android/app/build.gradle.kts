@@ -48,6 +48,7 @@ dependencies {
     implementation(libs.coil.network.okhttp)
     implementation(libs.compose.material3)
     implementation(libs.activity.compose)
+    implementation(libs.lifecycle.viewmodel)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)
@@ -62,6 +63,7 @@ dependencies {
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.turbine)
     testRuntimeOnly(libs.junit.jupiter.engine)
     testRuntimeOnly(libs.junit.platform.launcher)
 }

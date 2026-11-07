@@ -354,17 +354,29 @@ The normal launcher still shows the placeholder. These components do not select 
 
 ## Catalogue presentation contract
 
-Slice 8A adds `presentation/CatalogueState.kt`, `CatalogueAction.kt` and `CatalogueEvent.kt`. These define the inputs/outputs for the future catalogue ViewModel; they do not handle actions or send requests yet.
+Slice 8A adds `presentation/CatalogueState.kt`, `CatalogueAction.kt` and `CatalogueEvent.kt`. These define the inputs/outputs for the catalogue ViewModel; the contract types themselves do not handle actions or send requests.
 
 - CatalogueState holds draft query, submitted query, selected raw category, labelled category choices, featured/remaining ProductUi lists, optional confirmed source mode, loading and UiText error. Initial state is loading with mode unknown, so it does not imply demo mode or an empty catalogue before a response. CategoryUi keeps a raw filter value separate from its display label.
 - CatalogueAction describes query edits, explicit Search, clear search, category selection, clear all filters, retry and product clicks. A null category means all categories. Clear search and clear all filters are separate intents so the ViewModel can handle them explicitly.
 - CatalogueEvent currently contains NavigateToProduct(productId). Navigation will be a one-time event consumed by the future Root, rather than a persistent flag in state or a data-source side effect.
 
-The intended flow is Screen action → ViewModel handles it → StateFlow publishes a new CatalogueState → Screen renders shared components. A product click will emit an event to the Root for navigation. Handling, StateFlow, SavedStateHandle, cancellation, DI registration and screen wiring come in later chunks of Slice 8 and subsequent slices.
+The intended flow is Screen action → ViewModel handles it → StateFlow publishes a new CatalogueState → Screen renders shared components. A product click will emit an event to the Root for navigation. Slice 8B adds initial loading and StateFlow as described below. Action handling, search cancellation, SavedStateHandle, DI registration and screen wiring follow in later chunks.
 
 The state derives productCount from both result sections, hasActiveFilters from the selected category/submitted query, and isEmpty only when loading has finished, no error exists and both product sections are empty. For example, editing query to “headphones” while submittedQuery is “drive” leaves the active search as “drive” until Search is handled. Editing alone is not an applied filter. Read-only lists are used as state snapshots; callers must replace lists rather than mutate their backing collections. Data-class copy is shallow.
 
 Five focused state tests cover loading/failure versus empty results, products in either section, draft versus applied search, independent category/search filters and derived counts across copies. These tests verify state interpretation, not HTTP orchestration; ViewModel tests will verify requests and cancellation when that code exists. No new dependencies or visible app changes are introduced.
+
+## Catalogue ViewModel initial load
+
+Slice 8B adds `presentation/CatalogueViewModel.kt`. Its constructor receives the domain CatalogueRemoteDataSource interface. It owns a private MutableStateFlow initialized with CatalogueState and exposes a read-only StateFlow via asStateFlow(). On creation, init launches one unfiltered getCatalogue() request in viewModelScope. Collecting state does not start additional requests.
+
+For success, the ViewModel maps category values/labels and both product groups through the existing presentation helpers, preserving backend order and grouping. It publishes the confirmed mode, mapped lists and isLoading=false in one `.update { it.copy(...) }` operation. For a typed failure, it stops loading and publishes the mapped UiText error. Empty success and failure remain distinct. Expected network/decoding failures already arrive as Result.Error from the data source; cancellation remains an exception and is not turned into a UI error. No automatic retries or fallback products are introduced.
+
+viewModelScope ties the request to the ViewModel's lifetime, so clearing its ViewModelStore cancels a pending load. No dispatcher is injected because the ViewModel uses its standard main scope and the suspend data-source API. Lifecycle ViewModel 2.9.4 is declared directly; the shared coroutine test library was already present, and Turbine 1.2.1 is test-only.
+
+Five focused JVM tests use an injected fake source, deferred responses, a test Main dispatcher and Turbine. They verify loading → mapped success, typed failure, empty live success, a single request shared by two collectors, and cancellation on ViewModelStore.clear with no late state/error. Tests close the ViewModelStore and restore Main. They make no real backend requests and do not verify screen rendering. Full verification passed: 61 JVM tests, debug APK build and lint (24 dependency/configuration/manifest warnings, no errors).
+
+Only tests create the ViewModel in this chunk. Actions, search/category/retry behaviour, saved state, navigation events and Koin registration follow in 8C/8D; the launcher and galleries keep their existing behaviour.
 
 ## Android backend address
 
