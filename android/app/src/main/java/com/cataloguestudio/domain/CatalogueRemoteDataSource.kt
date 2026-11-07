@@ -7,4 +7,6 @@ interface CatalogueRemoteDataSource {
     ): Result<Catalogue, DataError>
 
     suspend fun getProduct(id: Long): Result<Product, DataError>
+
+    suspend fun sendEnquiry(enquiry: Enquiry): Result<Unit, DataError>
 }

@@ -4,7 +4,7 @@ An Android product catalogue built with Kotlin and Jetpack Compose. The planned 
 
 ## Current checkpoint
 
-The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio" and has a pure Kotlin catalogue contract ready for the later HTTP implementation. The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources, and Mailpit supplies a local test inbox. Enquiry sending and Android-to-backend requests are not implemented yet; no backend is needed to run the placeholder screen.
+The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio" and has pure Kotlin catalogue/enquiry contracts plus local enquiry validation ready for the later HTTP implementation. The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources, and Mailpit supplies a local test inbox. Enquiry sending and Android-to-backend requests are not implemented yet; no backend is needed to run the placeholder screen.
 
 ## Run in Android Studio
 
@@ -220,11 +220,31 @@ The `com.cataloguestudio.domain` package is pure Kotlin, with no Android, Compos
 
 - `Models.kt` defines read-only product/catalogue properties and a typed `CatalogueMode` (`DEMO` or `LIVE`). The catalogue carries categories, featured and remaining products. IDs use `Long` so they can represent the backend's safe-integer IDs. Image URLs are strings; resolving backend-relative paths belongs to the later data implementation.
 - `Result.kt` defines our two-parameter `Result<Data, Error>` with `Success(data)` and `Error(error)`, plus `DataError` cases for connection, timeout, invalid request, missing product, server, decoding and unknown failures. This is distinct from Kotlin's built-in `Result<T>`, which holds a Throwable on failure. HTTP/exception mapping is not implemented yet.
-- `CatalogueRemoteDataSource.kt` defines suspend functions for `getCatalogue(category, query)` and `getProduct(id)`. A null category/query means no filter. `suspend` allows coroutine callers to await an implementation; it does not automatically move work to a background thread.
+- `CatalogueRemoteDataSource.kt` defines suspend functions for `getCatalogue(category, query)`, `getProduct(id)` and the future `sendEnquiry(enquiry)`. A null category/query means no filter. Sending returns `Result<Unit, DataError>` because success needs no domain payload. `suspend` allows coroutine callers to await an implementation; it does not automatically move work to a background thread.
 
 The intended flow is ViewModel → `CatalogueRemoteDataSource` → typed `Result` → UI state. In Slice 6 a Ktor implementation will translate HTTP DTOs into these domain models and map expected transport failures into `DataError`. The UI can then use an exhaustive `when` over success/error. No implementation or caller is connected in this chunk, and no repository or use-case wrapper is added for this single backend source.
 
-Slice 5A adds only these catalogue contracts. Enquiry models and local form validation are a separate review chunk (5B), before networking. Plain data declarations have no behaviour to unit-test here; compilation and Android lint verify this checkpoint without adding a test framework or new dependencies.
+Slice 5A introduced the catalogue contract. Slice 5B adds the enquiry contract and tested local validation below; networking is still separate.
+
+## Android enquiry validation
+
+`domain/Enquiry.kt` carries `productId`, `name`, `email` and an optional `message` (default empty). `domain/EnquiryValidator.kt` provides independent name/email/message validators. Each returns one `Result<String, EnquiryValidationError>`: success contains trimmed text, and failure contains a field-specific error. The future form can run all three validators together to show errors beside each field, then build an Enquiry from successful values. Constructing the data class alone does not validate it or send anything.
+
+| Field | Local rules |
+| --- | --- |
+| Name | Required, up to 100 characters after trimming; no control characters, including CR/LF, tabs or NUL. International names, spaces, apostrophes and hyphens are allowed. |
+| Email | Required, up to 254 characters after trimming; practical address format with a dotted domain, local part up to 64 characters and domain labels up to 63. No controls or internal whitespace; plus addressing and subdomains are supported. Case is preserved. This does not check mailbox existence. |
+| Message | Optional, up to 2,000 characters after trimming; internal line breaks are preserved. |
+
+Lengths use Kotlin String length (UTF-16 code units), matching the planned backend string limits. Control checks use the raw name/email so trimming cannot silently hide leading/trailing newlines. The backend enquiry endpoint will validate requests independently in Slice 12; the form and email sending are not wired yet.
+
+JUnit 5 and AssertK are test-only dependencies managed by the version catalog; Android JVM unit tests use JUnit Platform. No emulator or backend is needed for validation tests. From `android/`, run:
+
+```sh
+./gradlew testDebugUnitTest --console=plain
+```
+
+Tests cover required fields, normalization, international names, malformed/header-like email input, single-line contact fields, optional/multiline messages and exact length boundaries.
 
 ## Android backend address for later slices
 
