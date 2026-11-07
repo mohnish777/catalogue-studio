@@ -158,19 +158,23 @@ class SafeRequestTest {
     @Test
     fun `connect and socket timeouts become timeout errors`() = runTest {
         for (failure in listOf(ConnectTimeoutException("Connect timed out", null), SocketTimeoutException("Read timed out"))) {
-            withClient({ throw failure }) { client ->
+            var requests = 0
+            withClient({ requests++; throw failure }) { client ->
                 assertThat(safeRequest(execute = { client.get("/example") }, decode = { Unit }))
                     .isEqualTo(Result.Error(DataError.REQUEST_TIMEOUT))
+                assertThat(requests).isEqualTo(1)
             }
         }
     }
 
     @Test
     fun `configured request timeout stops a delayed response after 15 virtual seconds`() = runTest {
-        withClient({ delay(20_000); respond(catalogueBody, HttpStatusCode.OK, jsonHeaders) }) { client ->
+        var requests = 0
+        withClient({ requests++; delay(20_000); respond(catalogueBody, HttpStatusCode.OK, jsonHeaders) }) { client ->
             val result = safeRequest(execute = { client.get("/example") }, decode = { Unit })
             assertThat(result).isEqualTo(Result.Error(DataError.REQUEST_TIMEOUT))
             assertThat(testScheduler.currentTime).isEqualTo(15_000L)
+            assertThat(requests).isEqualTo(1)
         }
     }
 
@@ -187,7 +191,8 @@ class SafeRequestTest {
 
     @Test
     fun `cancelling an in-flight request does not return an error result to its caller`() = runTest {
-        withClient({ awaitCancellation() }) { client ->
+        var requests = 0
+        withClient({ requests++; awaitCancellation() }) { client ->
             var returned = false
             val job = launch {
                 safeRequest(execute = { client.get("/example") }, decode = { Unit })
@@ -196,6 +201,7 @@ class SafeRequestTest {
             runCurrent()
             job.cancelAndJoin()
             assertThat(returned).isFalse()
+            assertThat(requests).isEqualTo(1)
         }
     }
 
