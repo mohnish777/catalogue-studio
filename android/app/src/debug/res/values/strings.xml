@@ -3,4 +3,9 @@
     <string name="gallery_description">Image success and failure, long titles and review counts. Tap a card to check its action.</string>
     <string name="gallery_loading">Image loading state</string>
     <string name="gallery_selected_product">Selected %1$s</string>
+    <string name="gallery_states_title">Catalogue states</string>
+    <string name="gallery_states_description">Loading, request failures and empty results. Try the buttons to check their actions.</string>
+    <string name="gallery_show_states">Review catalogue states</string>
+    <string name="gallery_retry_received">Retry action received</string>
+    <string name="gallery_clear_received">Clear filters action received</string>
 </resources>

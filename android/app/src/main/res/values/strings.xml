@@ -26,4 +26,21 @@
         <item quantity="one">%1$d review</item>
         <item quantity="other">%1$d reviews</item>
     </plurals>
+    <string name="state_loading_products">Loading the catalogue…</string>
+    <string name="state_error_title">Unable to load</string>
+    <string name="state_retry">Try again</string>
+    <string name="state_empty_title">No products found</string>
+    <string name="state_empty_filtered">Try another search or choose a different category.</string>
+    <string name="state_empty_catalogue">There are no products to show right now.</string>
+    <string name="state_clear_filters">Clear filters</string>
+    <string name="catalogue_mode_demo">Demo catalogue</string>
+    <string name="catalogue_mode_live">Live catalogue</string>
+    <plurals name="catalogue_products">
+        <item quantity="one">%1$d product</item>
+        <item quantity="other">%1$d products</item>
+    </plurals>
+    <plurals name="catalogue_featured">
+        <item quantity="one">%1$d featured</item>
+        <item quantity="other">%1$d featured</item>
+    </plurals>
 </resources>

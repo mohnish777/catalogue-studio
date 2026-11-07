@@ -1,6 +1,7 @@
 package com.cataloguestudio.ui
 
 import android.graphics.BitmapFactory
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -19,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
@@ -45,20 +47,25 @@ class ProductCardGalleryActivity : ComponentActivity() {
         setContent {
             StudioTheme {
                 val context = LocalContext.current
-                ProductCardGallery { product ->
-                    Toast.makeText(
-                        context,
-                        context.getString(R.string.gallery_selected_product, product.title),
-                        Toast.LENGTH_SHORT,
-                    ).show()
-                }
+                ProductCardGallery(
+                    onProductClick = { product ->
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.gallery_selected_product, product.title),
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    },
+                    onShowStates = {
+                        startActivity(Intent(this@ProductCardGalleryActivity, StateGalleryActivity::class.java))
+                    },
+                )
             }
         }
     }
 }
 
 @Composable
-private fun ProductCardGallery(onProductClick: (ProductUi) -> Unit) {
+private fun ProductCardGallery(onProductClick: (ProductUi) -> Unit, onShowStates: () -> Unit = {}) {
     val product = ProductUi(
         id = 9,
         title = "Portable everyday drive",
@@ -86,6 +93,7 @@ private fun ProductCardGallery(onProductClick: (ProductUi) -> Unit) {
         ) {
             Text(stringResource(R.string.gallery_title), style = MaterialTheme.typography.headlineLarge)
             Text(stringResource(R.string.gallery_description), style = MaterialTheme.typography.bodyMedium)
+            TextButton(onClick = onShowStates) { Text(stringResource(R.string.gallery_show_states)) }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),

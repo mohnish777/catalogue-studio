@@ -338,6 +338,20 @@ adb -s emulator-5554 shell am start -n com.cataloguestudio/.ui.ProductCardGaller
 
 The normal launcher still shows the placeholder. The catalogue screen and its ViewModel follow in their own slices. This chunk was checked on an emulator at 390 dp and 320 dp widths and at 1.5x text size, including real backend image loading, a missing image and a card tap. The existing 51 JVM tests, debug/release builds and lint passed (23 dependency/configuration/manifest warnings, no source errors). Release APK inspection confirmed the gallery class and preview image are absent. Emulator size/density/font overrides were restored after the checks.
 
+## Shared catalogue states and summary
+
+Slice 7D adds `ui/StateComponents.kt` with LoadingState, ErrorState and EmptyState. The caller supplies a UiText message; ErrorState forwards its retry button to onRetry, and EmptyState only shows a clear-filters button when an onClearFilters callback is provided. This lets a filtered empty result offer a reset while a genuinely empty catalogue has no misleading filter action. Messages use the shared resolver, state titles have heading semantics, and changing status text uses a polite accessibility live region. Layouts grow with text rather than fixing a panel height.
+
+`ui/CatalogueSummary.kt` displays a supplied source label and plural-aware product/featured counts. It does not choose a source, calculate counts or apply catalogue rules. Its FlowRow lets count labels wrap at narrow widths or larger font sizes. The future ViewModel/Screen will supply current results and decide which state to render.
+
+The debug-only StateGalleryActivity displays loading, server failure, filtered empty and unfiltered empty examples, plus demo/nonempty and live/zero-count summaries. Retry and clear-filter taps show confirmation toasts without issuing requests or changing filters. Three debug previews cover a standard phone, 320 dp width and 1.5x text. Open it from “Review catalogue states” in the product-card gallery, or launch directly:
+
+```sh
+adb -s emulator-5554 shell am start -n com.cataloguestudio/.ui.StateGalleryActivity
+```
+
+The normal launcher still shows the placeholder. These components do not select application state or perform network calls; the catalogue ViewModel comes next in Slice 8. Verification passed: all 51 existing JVM tests, debug/release APK builds and lint (23 dependency/configuration/manifest warnings, no errors). Manual emulator checks covered 390 dp and 320 dp widths, 1.5x text, both button callbacks and the unfiltered state without a reset action. Release APK inspection confirmed StateGalleryActivity is absent. Emulator display/font overrides were restored after checks.
+
 ## Android backend address
 
 The generated `BuildConfig.BASE_URL` defaults to `http://10.0.2.2:3000`. Inside the Android Emulator, `10.0.2.2` reaches your computer's loopback interface. Startup wiring supplies this address to the data module; no request is made by the placeholder screen yet.
@@ -369,7 +383,7 @@ android/
             │   ├── domain/  Models, contracts, typed results and enquiry validation
             │   ├── data/    DTO mapping, Ktor/OkHttp client, typed requests, endpoints and di/
             │   ├── presentation/  Product display models, UiText and error-message mapping
-            │   └── ui/      Theme, text resolution, product cards and image states
+            │   └── ui/      Theme, text resolution, product cards, states and catalogue summary
             └── res/values/strings.xml
 
 backend/
