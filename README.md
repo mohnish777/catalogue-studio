@@ -4,7 +4,7 @@ An Android product catalogue built with Kotlin and Jetpack Compose. The planned 
 
 ## Current checkpoint
 
-The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio". The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources, and Mailpit supplies a local test inbox. Enquiry sending and Android-to-backend requests are not implemented yet; no backend is needed to run the placeholder screen.
+The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio" and has a pure Kotlin catalogue contract ready for the later HTTP implementation. The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources, and Mailpit supplies a local test inbox. Enquiry sending and Android-to-backend requests are not implemented yet; no backend is needed to run the placeholder screen.
 
 ## Run in Android Studio
 
@@ -213,6 +213,18 @@ In live mode the backend fetches the product's original image URL. Only HTTPS UR
 Successful responses include `X-Content-Type-Options: nosniff` and `Cache-Control: public, max-age=60`. There is no server-side image cache or disk download in live mode. Unknown products return `PRODUCT_NOT_FOUND` (404); malformed IDs return `INVALID_PRODUCT_ID` (400). Image loading failures return `IMAGE_UNAVAILABLE` with 500 for missing/unreadable demo files or 502 for live image failures. Failures while loading the product list retain `CATALOGUE_UNAVAILABLE` (500). No placeholder image or demo fallback is substituted.
 
 Open `http://127.0.0.1:3000/images/9.jpg` in a browser, adjusting the port if using Docker on 3001. Tests verify all 13 demo image responses, live proxying, response URL mapping without cache mutation, URL/type/size limits and failure responses. A separate real live HTTP check returned product 1's image through `/images/1.jpg` with HTTP 200 and image/png (273,291 bytes).
+
+## Android catalogue contract
+
+The `com.cataloguestudio.domain` package is pure Kotlin, with no Android, Compose, Ktor or serialization imports:
+
+- `Models.kt` defines read-only product/catalogue properties and a typed `CatalogueMode` (`DEMO` or `LIVE`). The catalogue carries categories, featured and remaining products. IDs use `Long` so they can represent the backend's safe-integer IDs. Image URLs are strings; resolving backend-relative paths belongs to the later data implementation.
+- `Result.kt` defines our two-parameter `Result<Data, Error>` with `Success(data)` and `Error(error)`, plus `DataError` cases for connection, timeout, invalid request, missing product, server, decoding and unknown failures. This is distinct from Kotlin's built-in `Result<T>`, which holds a Throwable on failure. HTTP/exception mapping is not implemented yet.
+- `CatalogueRemoteDataSource.kt` defines suspend functions for `getCatalogue(category, query)` and `getProduct(id)`. A null category/query means no filter. `suspend` allows coroutine callers to await an implementation; it does not automatically move work to a background thread.
+
+The intended flow is ViewModel → `CatalogueRemoteDataSource` → typed `Result` → UI state. In Slice 6 a Ktor implementation will translate HTTP DTOs into these domain models and map expected transport failures into `DataError`. The UI can then use an exhaustive `when` over success/error. No implementation or caller is connected in this chunk, and no repository or use-case wrapper is added for this single backend source.
+
+Slice 5A adds only these catalogue contracts. Enquiry models and local form validation are a separate review chunk (5B), before networking. Plain data declarations have no behaviour to unit-test here; compilation and Android lint verify this checkpoint without adding a test framework or new dependencies.
 
 ## Android backend address for later slices
 
