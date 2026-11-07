@@ -1,0 +1,18 @@
+<resources>
+    <string name="gallery_products_title">Catalogue products</string>
+    <string name="gallery_products_description">Product sections review. Swipe featured cards, scroll the grid and tap a product to check its ID.</string>
+    <string name="gallery_search_drives">Search drives</string>
+    <string name="gallery_selected_product_id">Selected product %1$d</string>
+    <string name="gallery_controls_title">Catalogue controls</string>
+    <string name="gallery_controls_description">Controls review: connected to the local backend. Product sections follow in the next chunk.</string>
+    <string name="gallery_submitted_query">Submitted search: “%1$s”</string>
+    <string name="gallery_title">Product cards</string>
+    <string name="gallery_description">Image success and failure, long titles and review counts. Tap a card to check its action.</string>
+    <string name="gallery_loading">Image loading state</string>
+    <string name="gallery_selected_product">Selected %1$s</string>
+    <string name="gallery_states_title">Catalogue states</string>
+    <string name="gallery_states_description">Loading, request failures and empty results. Try the buttons to check their actions.</string>
+    <string name="gallery_show_states">Review catalogue states</string>
+    <string name="gallery_retry_received">Retry action received</string>
+    <string name="gallery_clear_received">Clear filters action received</string>
+</resources>
