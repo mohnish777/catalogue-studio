@@ -310,9 +310,17 @@ The placeholder screen still makes no requests. ViewModel bindings and UI consum
 
 Slice 7A adds `presentation/ProductUi.kt` and `presentation/UiText.kt`. A future ViewModel will call `Product.toProductUi()` after receiving domain products, then pass the resulting display models to Compose components. The mapper preserves identity, title, description, image URL, raw category and review count. It formats price as explicit USD with cents/grouping (64.99 → $64.99) and rating with one decimal place (4 → 4.0), using Locale.US independently of the device format locale. This is display formatting, not currency conversion or price arithmetic. Formatters are created per mapping call rather than sharing mutable NumberFormat instances.
 
-Known category labels live in Android string resources. `toCategoryLabel()` returns a `UiText.StringResource` for the four current API categories; unknown categories become `UiText.DynamicString` with their original text. For example, the API's `jewelery` displays as “Jewellery” but remains `jewelery` in the raw category field used for filtering. UiText holds a resource ID or dynamic text without needing a Context; resolving it into an actual display string comes with the shared UI helpers in the next chunk.
+Known category labels live in Android string resources. `toCategoryLabel()` returns a `UiText.StringResource` for the four current API categories; unknown categories become `UiText.DynamicString` with their original text. For example, the API's `jewelery` displays as “Jewellery” but remains `jewelery` in the raw category field used for filtering. UiText holds a resource ID or dynamic text without needing a Context; the UI resolver described below turns it into display text.
 
 Six JVM tests cover preserved fields, USD cents/grouping/rounding, rating formatting, independence from German/French default format locales, known category resources and unknown-category fallback. No new dependencies or requests are introduced. The app still shows its placeholder; ViewModels and Compose components will consume these models in later chunks.
+
+## Android text resolution and error messages
+
+Slice 7B adds `presentation/ErrorUiText.kt` and `ui/UiText.kt`. The two `toUiText()` extensions map every DataError and EnquiryValidationError to a string resource. Their exhaustive `when` expressions require a mapping if a new enum value is added. Messages describe connection, timeout, request, missing-item, service and response failures, plus field validation. A connection failure does not claim the device is definitely offline. Validation wording avoids duplicating numeric limits from EnquiryValidator.
+
+A future ViewModel will store the mapped UiText in screen state. The Compose UI calls `message.asString()`: DynamicString returns the supplied text; StringResource uses Compose's `stringResource(id)` for the current configuration. Resources currently have English values. No Context enters the ViewModel, and resolved resource strings are not cached in state. Existing category labels use the same resolver.
+
+The compiler/resource build checks the exhaustive mappings and resource references; the existing JVM suite runs unchanged. No dependencies or tests that merely duplicate the mapping table were added. Device rendering is not verified in this chunk. Shared components and screen consumers follow in later chunks, so the placeholder screen remains the same.
 
 ## Android backend address
 
@@ -344,8 +352,8 @@ android/
             │   ├── MainActivity.kt
             │   ├── domain/  Models, contracts, typed results and enquiry validation
             │   ├── data/    DTO mapping, Ktor/OkHttp client, typed requests, endpoints and di/
-            │   ├── presentation/  Product display models and resource/dynamic text
-            │   └── ui/      Theme and typography
+            │   ├── presentation/  Product display models, UiText and error-message mapping
+            │   └── ui/      Theme, typography and Compose text resolution
             └── res/values/strings.xml
 
 backend/
