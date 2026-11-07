@@ -4,7 +4,7 @@ An Android product catalogue built with Kotlin and Jetpack Compose. The planned 
 
 ## Current checkpoint
 
-The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio" and has domain contracts, enquiry validation, JSON mapping and a tested Ktor data-source implementation. The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources, and Mailpit supplies a local test inbox. App startup/UI are not connected to the data source yet. The enquiry request is prepared for the backend endpoint planned in Slice 12; actual email sending is not implemented. No backend is needed to run the placeholder screen.
+The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio" and has domain contracts, enquiry validation, JSON mapping and a tested Ktor data-source implementation. The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources, and Mailpit supplies a local test inbox. App startup now registers the shared HTTP engine, client and data source through Koin; the UI is not connected yet. The enquiry request is prepared for the backend endpoint planned in Slice 12; actual email sending is not implemented. No backend is needed to run the placeholder screen.
 
 ## Run in Android Studio
 
@@ -274,7 +274,7 @@ Slice 6B adds `data/CatalogueHttpClient.kt` and `data/SafeRequest.kt`. The clien
 
 Coroutine cancellation is rethrown rather than converted into an error result. The helper also checks that the caller's coroutine remains active when an engine throws another exception during cancellation. No automatic retry is configured.
 
-Tests use [Ktor MockEngine](https://ktor.io/docs/client-testing.html) and a coroutine test dispatcher. They exercise the actual client configuration, JSON decoding/mapping, status handling, connection failures, cancellation and a delayed request timeout using virtual time. Tests close the client and injected engine. This is not a real socket, Android engine or backend connectivity check. The production engine and Koin/Application wiring follow in 6D.
+Tests use [Ktor MockEngine](https://ktor.io/docs/client-testing.html) and a coroutine test dispatcher. They exercise the actual client configuration, JSON decoding/mapping, status handling, connection failures, cancellation and a delayed request timeout using virtual time. Tests close the client and injected engine. This is not a real socket, Android engine or backend connectivity check. Slice 6D supplies the production engine and Koin/Application wiring described below.
 
 ## Android endpoint implementation
 
@@ -292,11 +292,23 @@ Null filters are omitted; non-null values (including a blank query) are forwarde
 
 The real backend does not yet implement POST `/api/enquiries`; it returns 404 today, which the data source reports as NOT_FOUND. Enquiry success tests use simulated 201 responses and do not establish SMTP delivery. Slice 12 adds the endpoint and real local email integration.
 
-Endpoint tests verify methods/paths, absent and combined filters, special-character query encoding, domain response mapping, exact enquiry JSON/escaping, optional empty message, server failures without retry, mapper failures and cancellation. App startup and screens remain unchanged; no production caller or real backend connection is introduced in this chunk.
+Endpoint tests verify methods/paths, absent and combined filters, special-character query encoding, domain response mapping, exact enquiry JSON/escaping, optional empty message, server failures without retry, mapper failures and cancellation. These endpoint tests use simulated responses. Slice 6D wires the production engine; screens do not call the data source yet.
 
-## Android backend address for later slices
+## Android dependency wiring
 
-The generated `BuildConfig.BASE_URL` defaults to `http://10.0.2.2:3000`. Inside the Android Emulator, `10.0.2.2` reaches your computer's loopback interface. This address will be supplied to the client during startup wiring; no request is made by the placeholder screen yet.
+Slice 6D adds `CatalogueStudioApplication.kt` and `data/di/CatalogueDataModule.kt`. The manifest registers the Application so Android runs its `onCreate()` before the Activity. It starts Koin once with the application context and the data module, using `BuildConfig.BASE_URL` for both HTTP requests and image mapping. Dependencies use Koin 4.1.1; the Android transport is Ktor's OkHttp engine, matching Ktor 3.3.1. `gradle.properties` gives the Gradle build process a 2 GiB maximum heap and 512 MiB metaspace limit after dependency dex merging exceeded the default 512 MiB heap; these settings do not affect app runtime memory.
+
+The module registers three lazy singletons: HttpClientEngine, HttpClient and CatalogueRemoteDataSource (backed by KtorCatalogueDataSource). Registration sends no requests. When a future ViewModel requests the domain interface, Koin resolves and reuses its client and engine. The module captures the base URL directly instead of registering an unqualified String dependency. Factory lambdas are needed here to call the client/engine factories and pass that configuration.
+
+OkHttp connection retries are explicitly disabled, matching the request helper's policy of leaving retries to the caller. Redirects remain disabled and the existing JSON/timeouts apply. The module owns the supplied engine as well as the client: `HttpClient(engine)` does not own an externally supplied engine, so both have `onClose` callbacks when Koin closes. In Android these objects live for the app process; no Activity closes them, and no Application.onTerminate cleanup is assumed.
+
+The optional engine factory parameter lets isolated JVM tests substitute MockEngine without changing production bindings. Tests verify lazy creation, singleton reuse, the shared request/image base URL and resource closure. A separate test resolves the default OkHttp engine through the same Koin module and makes real HTTP requests to a temporary loopback MockWebServer, checking catalogue decoding and 404 handling. MockWebServer is test-only and matches the OkHttp version used by Ktor. This verifies the production transport on the JVM; it does not verify emulator networking or Android Application startup on a device.
+
+The placeholder screen still makes no requests. ViewModel bindings and UI consumers will be added in their own slices; enquiry backend delivery remains Slice 12.
+
+## Android backend address
+
+The generated `BuildConfig.BASE_URL` defaults to `http://10.0.2.2:3000`. Inside the Android Emulator, `10.0.2.2` reaches your computer's loopback interface. Startup wiring supplies this address to the data module; no request is made by the placeholder screen yet.
 
 Override it at build time when needed:
 
@@ -320,9 +332,10 @@ android/
         └── main/
             ├── AndroidManifest.xml
             ├── java/com/cataloguestudio/
+            │   ├── CatalogueStudioApplication.kt  Starts Koin
             │   ├── MainActivity.kt
             │   ├── domain/  Models, contracts, typed results and enquiry validation
-            │   ├── data/    DTO mapping, Ktor client, typed requests and endpoint implementation
+            │   ├── data/    DTO mapping, Ktor/OkHttp client, typed requests, endpoints and di/
             │   └── ui/      Theme and typography
             └── res/values/strings.xml
 
