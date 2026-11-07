@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { createApp } from "../dist/app.js";
 import { LiveProductSource } from "../dist/product-sources.js";
 
-async function startApp(t, source) {
-  const server = createApp(source).listen(0, "127.0.0.1");
+async function startApp(t, source, fetchImage) {
+  const server = createApp(source, fetchImage).listen(0, "127.0.0.1");
   t.after(() => new Promise((resolve, reject) => {
     server.close((error) => error ? reject(error) : resolve());
   }));
@@ -146,8 +147,68 @@ test("catalogue and detail requests share one configured live source and cache",
   assert.equal(catalogueResponse.status, 200);
   assert.equal(catalogue.mode, "live");
   assert.equal(catalogue.featured[0].title, "Live backpack");
+  assert.equal(catalogue.featured[0].imageUrl, "/images/1.jpg");
   const detail = await fetch(`${base}/api/products/1`);
   assert.equal(detail.status, 200);
-  assert.equal((await detail.json()).rating, 4.5);
+  const product = await detail.json();
+  assert.equal(product.rating, 4.5);
+  assert.equal(product.imageUrl, "/images/1.jpg");
+  assert.equal((await source.list())[0].imageUrl, "https://fakestoreapi.com/img/bag.jpg");
   assert.equal(requests, 1);
+});
+
+test("every demo product image URL serves its bundled JPEG through the backend", async (t) => {
+  const base = await startApp(t);
+  const catalogue = await (await fetch(`${base}/api/catalogue`)).json();
+  for (const product of [...catalogue.featured, ...catalogue.remaining]) {
+    const response = await fetch(new URL(product.imageUrl, base));
+    const expected = await readFile(new URL(`../public/images/${product.id}.jpg`, import.meta.url));
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("content-type"), /image\/jpeg/);
+    assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+    assert.equal(response.headers.get("cache-control"), "public, max-age=60");
+    assert.deepEqual(Buffer.from(await response.arrayBuffer()), expected);
+    assert.equal(expected.subarray(0, 3).toString("hex"), "ffd8ff");
+  }
+});
+
+test("live image route uses the source URL and returns the upstream bytes", async (t) => {
+  const product = { id: 1, imageUrl: "https://fakestoreapi.com/img/bag.jpg" };
+  const bytes = new Uint8Array([255, 216, 255, 217]);
+  const base = await startApp(t, { mode: "live", list: async () => [product] }, async (url) => {
+    assert.equal(url.href, product.imageUrl);
+    return new Response(bytes, { headers: { "Content-Type": "image/jpeg" } });
+  });
+
+  const response = await fetch(`${base}/images/1.jpg`);
+  assert.equal(response.status, 200);
+  assert.deepEqual(Buffer.from(await response.arrayBuffer()), Buffer.from(bytes));
+});
+
+test("invalid image IDs and unknown products do not trigger upstream image requests", async (t) => {
+  let requests = 0;
+  const base = await startApp(t, { mode: "live", list: async () => [] }, async () => { requests++; });
+  for (const [path, status, code] of [
+    ["/images/abc.jpg", 400, "INVALID_PRODUCT_ID"],
+    ["/images/999.jpg", 404, "PRODUCT_NOT_FOUND"],
+  ]) {
+    const response = await fetch(`${base}${path}`);
+    assert.equal(response.status, status);
+    assert.equal((await response.json()).error.code, code);
+  }
+  assert.equal(requests, 0);
+});
+
+test("missing demo files and rejected live images return safe JSON errors", async (t) => {
+  t.mock.method(console, "error", () => {});
+  for (const [mode, id, status] of [["demo", 99, 500], ["live", 1, 502]]) {
+    const base = await startApp(t, {
+      mode, list: async () => [{ id, imageUrl: "https://example.com/private-image.jpg" }],
+    });
+    const response = await fetch(`${base}/images/${id}.jpg`);
+    assert.equal(response.status, status);
+    assert.deepEqual(await response.json(), {
+      error: { code: "IMAGE_UNAVAILABLE", message: "Unable to load product image. Please try again." },
+    });
+  }
 });

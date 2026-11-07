@@ -4,7 +4,7 @@ An Android product catalogue built with Kotlin and Jetpack Compose. The planned 
 
 ## Current checkpoint
 
-The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio". The backend provides health, catalogue and product-detail endpoints with explicit demo/live sources, and Mailpit supplies a local test inbox. Image delivery, enquiry sending and Android-to-backend requests are not implemented yet; no backend is needed to run the placeholder screen.
+The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio". The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources, and Mailpit supplies a local test inbox. Enquiry sending and Android-to-backend requests are not implemented yet; no backend is needed to run the placeholder screen.
 
 ## Run in Android Studio
 
@@ -133,7 +133,7 @@ docker compose stop mailpit
 
 `backend/src/catalogue.ts` defines the product schema, its inferred TypeScript type, the product-source interface and a demo implementation. The demo source reads thirteen sample products across four categories from `backend/fixtures/products.json` and validates them with Zod. Sample copy, prices and ratings are illustrative.
 
-The HTTP routes load products through the selected source and apply the catalogue rules described below. Image paths in the fixture are data references; image files and their serving route will be added in a later chunk. Android requests are also a separate chunk.
+The HTTP routes load products through the selected source and apply the catalogue rules described below. Catalogue/detail responses expose relative backend image paths, served from bundled JPEGs in demo mode or fetched through the backend in live mode. Android requests are a separate chunk.
 
 From `backend/`, run:
 
@@ -164,6 +164,7 @@ The returned object contains `categories`, `featured` and `remaining`. Focused t
 | `GET /api/catalogue` | `{ "mode": "demo", "categories": [...], "featured": [...], "remaining": [...] }` |
 | `GET /api/catalogue?category=electronics&q=portable` | Same shape, with combined category/search rules |
 | `GET /api/products/9` | A single complete product object |
+| `GET /images/9.jpg` | Product image bytes with the actual image Content-Type |
 
 Try these against the direct server (use port 3001 instead if that is your Docker host port):
 
@@ -195,11 +196,23 @@ PRODUCT_SOURCE=live BACKEND_PORT=3001 docker compose up --build -d --wait
 
 Choose `PRODUCT_SOURCE=demo` to return to the bundled sample data. Changing the variable requires restarting/recreating the server. No credentials or new dependencies are needed.
 
-`backend/src/product-sources.ts` implements the live adapter against [Fake Store API's documented products endpoint](https://github.com/keikaavousi/fake-store-api). It validates the upstream response, maps `image` to `imageUrl` and `rating.rate/count` to our `rating/reviewCount`, and keeps existing catalogue/detail contracts unchanged. Live image URLs currently point upstream; backend image delivery will be implemented in Slice 4E before Android integration.
+`backend/src/product-sources.ts` implements the live adapter against [Fake Store API's documented products endpoint](https://github.com/keikaavousi/fake-store-api). It validates the upstream response and maps `image` to `imageUrl` and `rating.rate/count` to our `rating/reviewCount`. The live source retains the original upstream image URL internally. HTTP handlers return a copy with a backend image path, leaving the source/cache unchanged.
 
 Live loading has a five-second request/body timeout and an in-memory 60-second cache, measured from successful validation. Catalogue/detail requests share the same source and cache. Concurrent cache misses share one pending request. Failed loads are not cached, and expired data is not returned when a refresh fails; the next request can retry. The existing HTTP error handler returns `CATALOGUE_UNAVAILABLE` (500). Live mode never silently substitutes demo data. `/health` checks the process independently and does not prove upstream availability.
 
 Tests inject fetch responses and a clock to verify mapping, cache expiry, concurrent requests, failures/retries and HTTP integration without relying on external availability. During Slice 4D verification, a separate real request successfully loaded and validated 20 upstream products. This check confirms connectivity at that time, not continued upstream availability.
+
+## Product image delivery
+
+All catalogue/detail `imageUrl` values have the form `/images/9.jpg`. Clients resolve this relative path against the backend base URL. The image route validates the ID and finds the product in the selected source before loading any image; it does not accept arbitrary URLs or filesystem paths.
+
+`backend/src/product-images.ts` reads demo images by product ID from `backend/public/images/`. The 13 bundled JPEG assets were reused from the earlier PoC; delivery code was implemented in this branch. Docker copies them into the runtime image, and paths resolve relative to the compiled module rather than the working directory.
+
+In live mode the backend fetches the product's original image URL. Only HTTPS URLs on `fakestoreapi.com` under `/img/`, without URL credentials, are allowed. Redirects are rejected. A five-second timeout covers fetching/reading the body; JPEG, PNG and WebP Content-Types are accepted. Actual streamed bytes are limited to 2 MiB regardless of Content-Length; unsupported types, empty bodies and oversized responses fail explicitly. The route forwards the actual MIME type, so a stable `.jpg` URL can return PNG bytes without converting the image.
+
+Successful responses include `X-Content-Type-Options: nosniff` and `Cache-Control: public, max-age=60`. There is no server-side image cache or disk download in live mode. Unknown products return `PRODUCT_NOT_FOUND` (404); malformed IDs return `INVALID_PRODUCT_ID` (400). Image loading failures return `IMAGE_UNAVAILABLE` with 500 for missing/unreadable demo files or 502 for live image failures. Failures while loading the product list retain `CATALOGUE_UNAVAILABLE` (500). No placeholder image or demo fallback is substituted.
+
+Open `http://127.0.0.1:3000/images/9.jpg` in a browser, adjusting the port if using Docker on 3001. Tests verify all 13 demo image responses, live proxying, response URL mapping without cache mutation, URL/type/size limits and failure responses. A separate real live HTTP check returned product 1's image through `/images/1.jpg` with HTTP 200 and image/png (273,291 bytes).
 
 ## Android backend address for later slices
 
@@ -234,9 +247,16 @@ backend/
 ├── .dockerignore            Excludes local dependencies, build output and secrets
 ├── package.json             Node dependencies and scripts
 ├── tsconfig.json            TypeScript compiler settings
+├── fixtures/products.json  Bundled demo product data
+├── public/images/          Bundled demo JPEGs
+├── test/                   Source, rule and HTTP tests
 └── src/
-    ├── app.ts               Express application and HTTP routes
-    └── server.ts            Port configuration and server startup
+    ├── app.ts              Express routes and public response mapping
+    ├── catalogue.ts        Product schema, source contract and demo loader
+    ├── catalogue-rules.ts  Featured selection and search/filter rules
+    ├── product-sources.ts  Live adapter, cache and source selection
+    ├── product-images.ts   Demo image loading and bounded live image fetching
+    └── server.ts           Source selection and server startup
 
 compose.yaml                Local backend and Mailpit startup
 ```
