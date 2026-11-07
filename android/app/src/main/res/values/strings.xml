@@ -57,4 +57,9 @@
     </plurals>
     <string name="catalogue_explore">Explore products</string>
     <string name="catalogue_applied_search">Results for “%1$s”</string>
+    <string name="product_detail_title">Product details</string>
+    <string name="enquiry_title">Product enquiry</string>
+    <string name="navigation_product_reference">Product #%1$d</string>
+    <string name="product_enquire">Enquire about this product</string>
+    <string name="navigation_back">Back</string>
 </resources>

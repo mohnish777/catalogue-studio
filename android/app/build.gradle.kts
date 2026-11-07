@@ -1,9 +1,19 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
 }
+
+// Per-developer settings stay in ignored local.properties; -PapiBaseUrl takes precedence.
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.isFile) file.inputStream().use { load(it) }
+}
+val apiBaseUrl = providers.gradleProperty("apiBaseUrl")
+    .getOrElse(localProperties.getProperty("apiBaseUrl", "http://10.0.2.2:3000"))
 
 android {
     namespace = "com.cataloguestudio"
@@ -18,7 +28,7 @@ android {
         buildConfigField(
             "String",
             "BASE_URL",
-            "\"${providers.gradleProperty("apiBaseUrl").getOrElse("http://10.0.2.2:3000")}\"",
+            "\"$apiBaseUrl\"",
         )
     }
 
@@ -49,6 +59,7 @@ dependencies {
     implementation(libs.coil.network.okhttp)
     implementation(libs.compose.material3)
     implementation(libs.activity.compose)
+    implementation(libs.navigation.compose)
     implementation(libs.lifecycle.viewmodel)
     implementation(libs.lifecycle.viewmodel.savedstate)
     implementation(libs.kotlinx.serialization.json)

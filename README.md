@@ -4,7 +4,7 @@ An Android product catalogue built with Kotlin and Jetpack Compose. The planned 
 
 ## Current checkpoint
 
-The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio" and has domain contracts, enquiry validation, JSON mapping and a tested Ktor data-source implementation. The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources, and Mailpit supplies a local test inbox. App startup registers the shared HTTP engine, client, data source and catalogue ViewModel through Koin. The ViewModel handles catalogue actions, request cancellation and saved input restoration. A debug-only review screen now connects search/category controls to it; the normal launcher still shows the placeholder. The enquiry request is prepared for the backend endpoint planned in Slice 12; actual email sending is not implemented. No backend is needed to run the placeholder screen.
+The normal Android launcher now opens the complete catalogue through a typed navigation graph. Search, categories, featured picks and product cards use the local backend. Product taps open a temporary detail destination; its Enquire button opens a temporary enquiry destination with the same product ID, and Back returns through the stack. Product-detail content and the enquiry form follow in Slices 11 and 14. The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources; Mailpit supplies a local test inbox. Actual email sending remains Slice 12. Start the backend to load products; connection failures offer Retry.
 
 ## Run in Android Studio
 
@@ -478,9 +478,25 @@ Verification: all 82 existing JVM tests and debug/release assembly passed. Lint 
 
 The author has one hour remaining and requested minimal per-chunk checks. Continue with one small implementation chunk and a quick compile; reserve broad regression, device/layout matrices and complete failure walkthroughs for Slice 15. Slice 9C awaits author review; next is a small Slice 10 navigation/app-entry chunk.
 
+## App entry and typed navigation
+
+Slice 10 adds `presentation/navigation/CatalogueRoutes.kt`: CatalogueRoute has no arguments, while ProductDetailRoute and EnquiryRoute carry only a Long productId. Kotlin serialization provides the route contract; Navigation Compose 2.9.5 encodes/decodes arguments without hand-built path strings. The destination will load its own product data rather than receiving a whole ProductUi object.
+
+MainActivity → StudioTheme → CatalogueApp → rememberNavController/NavHost → catalogueGraph → CatalogueRoot. CatalogueRoot's existing lifecycle event collector invokes onNavigateToProduct(id), and the graph navigates to ProductDetailRoute(id). Its temporary shell decodes the ID with toRoute; Enquire forwards that ID to EnquiryRoute. Both shells offer Back via popBackStack. launchSingleTop avoids an additional top entry when the same destination/arguments are opened repeatedly. NavController stays in app/graph wiring; neither the catalogue Screen nor its ViewModel depends on it. Koin now scopes the catalogue ViewModel to its navigation back-stack entry, preserving catalogue state while that entry remains in the stack.
+
+The detail/enquiry shells show a title and product reference to make argument flow reviewable. They do not fetch product details, submit an enquiry or claim success. Slice 11 replaces the detail shell; Slice 14 replaces the enquiry shell. Normal launcher verification and complete forward/back/restoration checks are deferred to Slice 15 under the author's time constraint; Kotlin compilation (`:app:compileDebugKotlin --offline`) and whitespace checks passed. No test suite or emulator walkthrough was run for this chunk.
+
 ## Android backend address
 
-The generated `BuildConfig.BASE_URL` defaults to `http://10.0.2.2:3000`. Inside the Android Emulator, `10.0.2.2` reaches your computer's loopback interface. Startup wiring supplies this address to the data module; no request is made by the placeholder screen yet.
+The generated `BuildConfig.BASE_URL` defaults to `http://10.0.2.2:3000`. Inside the Android Emulator, `10.0.2.2` reaches your computer's loopback interface. Startup wiring supplies this address to the data module; opening the normal launcher now loads the catalogue through that source.
+
+For a USB-connected physical phone, add `apiBaseUrl=http://127.0.0.1:3000` to `android/local.properties` (ignored by Git), then forward the phone's loopback port to your computer before running from Android Studio:
+
+```sh
+adb -s YOUR_DEVICE_SERIAL reverse tcp:3000 tcp:3000
+```
+
+Reapply forwarding after reconnecting the phone or restarting adb. Rebuild after changing the URL. `10.0.2.2` is specific to the Android Emulator; it does not reach your computer from a physical phone. The backend can keep listening on computer loopback when using USB forwarding. URL precedence: `-PapiBaseUrl`, then `local.properties`, then the emulator default.
 
 Override it at build time when needed:
 
