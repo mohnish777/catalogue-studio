@@ -16,6 +16,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -48,14 +50,19 @@ class CatalogueControlsGalleryActivity : ComponentActivity() {
 
 @Composable
 private fun CatalogueControlsGallery(state: CatalogueState, onAction: (CatalogueAction) -> Unit) {
+    val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
     Surface(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier.safeDrawingPadding().imePadding()
-                .verticalScroll(rememberScrollState()).padding(vertical = 20.dp),
+                .verticalScroll(scrollState).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            CatalogueControls(state.query, state.selectedCategory, state.categories, onAction)
-            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+            CatalogueControls(
+                state.query, state.selectedCategory, state.categories, onAction,
+                onExplore = { scope.launch { scrollState.animateScrollTo(scrollState.maxValue) } },
+            )
+            Column {
                 Text(stringResource(R.string.gallery_controls_description), style = MaterialTheme.typography.bodySmall)
                 Text(
                     stringResource(R.string.gallery_submitted_query, state.submittedQuery),
@@ -105,7 +112,8 @@ private fun CatalogueControlsPreview() {
                     CategoryUi("Home & café essentials", UiText.DynamicString("Home & café essentials")),
                 ),
                 onAction = {},
-                modifier = Modifier.padding(vertical = 20.dp),
+                onExplore = {},
+                modifier = Modifier.padding(20.dp),
             )
         }
     }

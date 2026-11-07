@@ -2,7 +2,6 @@ package com.cataloguestudio.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
@@ -11,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -38,6 +38,7 @@ internal fun CatalogueControls(
     selectedCategory: String?,
     categories: List<CategoryUi>,
     onAction: (CatalogueAction) -> Unit,
+    onExplore: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
@@ -52,11 +53,10 @@ internal fun CatalogueControls(
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(20.dp)) {
         Text(
             text = stringResource(R.string.app_name),
-            modifier = Modifier.padding(horizontal = 20.dp),
             style = MaterialTheme.typography.titleMedium,
         )
         Surface(
-            modifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(24.dp),
             color = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -72,10 +72,18 @@ internal fun CatalogueControls(
                     style = MaterialTheme.typography.headlineLarge,
                 )
                 Text(stringResource(R.string.catalogue_intro), style = MaterialTheme.typography.bodyMedium)
+                Button(
+                    onClick = onExplore,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
+                ) {
+                    Text(stringResource(R.string.catalogue_explore))
+                }
             }
         }
         Column(
-            modifier = Modifier.padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             OutlinedTextField(
@@ -108,7 +116,6 @@ internal fun CatalogueControls(
             )
         }
         LazyRow(
-            contentPadding = PaddingValues(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item(key = "all") {

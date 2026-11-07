@@ -55,4 +55,6 @@
         <item quantity="one">%1$d featured</item>
         <item quantity="other">%1$d featured</item>
     </plurals>
+    <string name="catalogue_explore">Explore products</string>
+    <string name="catalogue_applied_search">Results for “%1$s”</string>
 </resources>

@@ -458,6 +458,26 @@ Verification passed: all 82 existing JVM tests, debug/release APK builds, lint (
 
 Next is 9C: combine controls, summary, state feedback and these sections into CatalogueScreen/Root. Application entry and destination navigation remain Slice 10.
 
+## Complete catalogue screen
+
+Slice 9C adds `ui/CatalogueScreen.kt`, with `CatalogueRoot` and `CatalogueScreen` in the same file. Root gets the existing ViewModel through `koinViewModel()`, collects state with `collectAsStateWithLifecycle()` and forwards `NavigateToProduct(id)` through its callback. `ObserveAsEvents.kt` collects events while the owner is STARTED; `rememberUpdatedState` supplies the latest callback without restarting the collector after recomposition. The collector is cancelled when the Root leaves composition. This small lifecycle helper moved forward from Slice 10 because the complete Root needs to handle product clicks now. NavController, routes and the normal launcher remain Slice 10.
+
+Screen accepts only CatalogueState and onAction. One LazyVerticalGrid contains the controls, full-width feedback/summary and the reviewed product sections. It owns grid scrolling, keyboard/system-bar insets, a centred maximum width of 1100 dp and font-aware adaptive card columns. The hero's Explore products button animates to the feedback/result-summary item, which always exists. CatalogueControls now leaves outer padding to its parent, avoiding double padding inside this grid; its earlier debug gallery was adjusted accordingly. Business state and requests still belong to the ViewModel/source. Existing backend ordering and featured grouping are preserved.
+
+Loading and error states replace the result summary/cards so they cannot claim a zero-product result or a previous source mode. Confirmed results show their source/counts; search labels use submittedQuery rather than a new draft. Filtered empty results offer Clear filters; an unfiltered empty catalogue does not. Retry, clear, search, category and card actions all use the existing action contract. Koin Compose ViewModel 4.1.1 is the only new library; lifecycle-runtime-compose 2.9.4 is now a main dependency for Root and the event helper.
+
+With the backend running and the debug APK installed, open the complete screen:
+
+```sh
+adb -s emulator-5554 shell am start -n com.cataloguestudio/.ui.CatalogueScreenGalleryActivity
+```
+
+This debug host runs the actual Root and confirms selected IDs by toast until navigation exists. For deterministic whole-screen layout review, restart it with `--es scenario loading`, `error`, `empty` or `filtered-empty` (add `-S` to the `am start` command to restart). These fixed scenarios do not make requests: Retry/Clear filters only show an action-confirmation toast. A normal launch without scenario extras uses real backend state/actions. Six themed previews cover populated, narrow, larger-text, loading, error and filtered-empty layouts; populated previews use a bundled debug image. The host, fixtures and previews are absent from release builds.
+
+Verification: all 82 existing JVM tests and debug/release assembly passed. Lint reported no errors and 27 warnings (the additional warning is a newer-version notice for Koin Compose ViewModel). Release inspection confirmed that the review Activity, fixed states and previews are excluded. Emulator checks covered real home loading, Explore scrolling, product ID 1 callback, submitted drive search versus an unsent drivex draft, filtered-empty reset, Electronics picks, and deterministic loading/error/empty layouts with Retry/Clear callback confirmations. Layout bounds checks covered two columns at 390 dp, one at 320 dp/1.5x text and the 1100-dp tablet width cap. Larger-text/tablet screenshots were captured but not visually reviewed. Emulator settings were restored and the owned emulator stopped. The actual disconnect/reconnect retry walkthrough remains for final testing; fixed error scenarios confirm layout/dispatch only.
+
+The author has one hour remaining and requested minimal per-chunk checks. Continue with one small implementation chunk and a quick compile; reserve broad regression, device/layout matrices and complete failure walkthroughs for Slice 15. Slice 9C awaits author review; next is a small Slice 10 navigation/app-entry chunk.
+
 ## Android backend address
 
 The generated `BuildConfig.BASE_URL` defaults to `http://10.0.2.2:3000`. Inside the Android Emulator, `10.0.2.2` reaches your computer's loopback interface. Startup wiring supplies this address to the data module; no request is made by the placeholder screen yet.
