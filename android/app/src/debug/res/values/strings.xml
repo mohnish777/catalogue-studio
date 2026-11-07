@@ -1,4 +1,8 @@
 <resources>
+    <string name="gallery_products_title">Catalogue products</string>
+    <string name="gallery_products_description">Product sections review. Swipe featured cards, scroll the grid and tap a product to check its ID.</string>
+    <string name="gallery_search_drives">Search drives</string>
+    <string name="gallery_selected_product_id">Selected product %1$d</string>
     <string name="gallery_controls_title">Catalogue controls</string>
     <string name="gallery_controls_description">Controls review: connected to the local backend. Product sections follow in the next chunk.</string>
     <string name="gallery_submitted_query">Submitted search: “%1$s”</string>

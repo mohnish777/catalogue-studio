@@ -440,6 +440,24 @@ Four production-engine tests use a temporary loopback MockWebServer: GET recover
 
 Verification passed: all 82 JVM tests, debug APK build, lint (26 existing dependency/configuration/manifest warnings, no errors) and whitespace checks. On the emulator against the local backend, four sequential checks each waited seven seconds before requesting again: drive search (two products), Electronics browsing (two), all-category home (13), and blank search (13). All completed without manual retry or a visible connection error. This checks the reproduced idle scenario rather than every network failure. Emulator size/density settings were restored and the owned emulator stopped after verification.
 
+## Catalogue product sections
+
+Slice 9B adds `ui/CatalogueProductSections.kt`. Its `LazyGridScope.catalogueProductSections(...)` extension appends a featured heading/carousel and remaining-product heading/cards to the parent's grid. It accepts the two ProductUi lists, resource-or-dynamic section titles and the action callback. It does not fetch, sort, filter or deduplicate products: the backend already supplies disjoint ordered groups. Empty groups add no heading or placeholder. Search therefore renders its result grid without a featured section.
+
+Headings and the carousel span `maxLineSpan`, so they use the full row regardless of the column count. Featured cards use a horizontal LazyRow, while remaining cards are individual lazy-grid items. This keeps a single vertical scroll container; the horizontal row can be nested safely. Stable product IDs identify cards, prefixed grid keys avoid collisions with section keys, and contentType separates headings/carousel/cards for reuse. Featured-card width grows with font scale and is capped at the available width. The parent owns adaptive columns and overall padding/scrolling; the debug host uses a 156-dp minimum card width scaled with font size, producing two columns at 390 dp and one at 320 dp or 1.5x text.
+
+`src/debug/.../CatalogueProductsGalleryActivity.kt` obtains the existing ViewModel from Koin and collects its StateFlow with lifecycle awareness. Debug controls load home, Electronics, or a drive search. ProductCard → OnProductClick(id) → ViewModel Channel event → the Activity's STARTED lifecycle collector → a confirmation toast containing the ID. This verifies both card-section callbacks without adding navigation. Three themed previews use fixed ProductUi fixtures and a bundled debug image, with no preview requests. The host, diagnostic strings and previews are debug-only; the normal launcher and production Root/Screen wiring remain later work.
+
+With the backend running and the debug APK installed, open the product review screen explicitly:
+
+```sh
+adb -s emulator-5554 shell am start -n com.cataloguestudio/.ui.CatalogueProductsGalleryActivity
+```
+
+Verification passed: all 82 existing JVM tests, debug/release APK builds, lint (26 existing dependency/configuration/manifest warnings, no errors) and whitespace checks. Release APK inspection confirmed the product-review Activity and its diagnostic resource are absent. On the emulator, all five featured IDs appeared in backend order (1, 2, 5, 7, 9), and the grid showed the eight remaining IDs in order (3, 4, 6, 8, 10, 11, 12, 13) without featured duplicates. Real local images loaded. Electronics displayed one category pick and one remaining product; drive search displayed only IDs 9/10 and no featured heading/carousel. Featured and grid taps produced ID 1 and ID 13 confirmations. Layout checks confirmed two grid columns at 390 dp, one at 320 dp and one with 1.5x text, plus a featured card that fits the larger-text viewport. Emulator size/density/font settings were restored and the owned emulator stopped. No new dependencies, backend changes or ViewModel changes.
+
+Next is 9C: combine controls, summary, state feedback and these sections into CatalogueScreen/Root. Application entry and destination navigation remain Slice 10.
+
 ## Android backend address
 
 The generated `BuildConfig.BASE_URL` defaults to `http://10.0.2.2:3000`. Inside the Android Emulator, `10.0.2.2` reaches your computer's loopback interface. Startup wiring supplies this address to the data module; no request is made by the placeholder screen yet.

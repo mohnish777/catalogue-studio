@@ -8,6 +8,10 @@
     <string name="catalogue_clear_search">Clear search</string>
     <string name="catalogue_categories">Browse by category</string>
     <string name="catalogue_all_categories">All products</string>
+    <string name="catalogue_featured_title">The featured edit</string>
+    <string name="catalogue_category_picks">Category favourites</string>
+    <string name="catalogue_more_products">More to discover</string>
+    <string name="catalogue_search_results">Search results</string>
     <string name="category_mens_clothing">Men\'s clothing</string>
     <string name="category_womens_clothing">Women\'s clothing</string>
     <string name="category_jewellery">Jewellery</string>
