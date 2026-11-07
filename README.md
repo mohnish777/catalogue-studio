@@ -524,6 +524,18 @@ curl --fail-with-body http://127.0.0.1:3000/api/enquiries \
 
 Focused verification passed: TypeScript build, whitespace check, invalid/header/unknown-field requests, unknown product, malformed/oversized JSON, rate limiting, actual SMTP acceptance and unavailable-SMTP 503. The captured Mailpit message was checked for sender, sales recipient, customer Reply-To and product/contact/message content. Isolated ephemeral HTTP servers were closed afterward; the existing backend/Mailpit services stayed running. The real development server now returns INVALID_ENQUIRY for invalid input, confirming it picked up the route. No broad test suite was run; repeatable automated coverage and the Android-to-inbox walkthrough remain Slice 15. The sample capture is left in the inbox for review.
 
+## Enquiry form state and submission
+
+Slice 13 adds `presentation/EnquiryState.kt` and `EnquiryViewModel.kt`, registered with Koin. The ViewModel decodes EnquiryRoute's productId from SavedStateHandle and loads the selected product independently of submitting. State separates product loading/loadError from isSending/sendError/isSent, and holds raw name/email/message plus resource-backed field errors. canSubmit means the product is ready and no request/success is active; field validation happens on Submit so invalid fields can explain their errors.
+
+Edits update StateFlow and SavedStateHandle. Submit validates all three fields with the existing EnquiryValidator, reveals errors together and then revalidates edited fields. Valid submission creates one trimmed Enquiry snapshot and sets isSending synchronously before launching sendEnquiry. While sending, all actions including Back are ignored; Slice 14 will also handle the system Back gesture. No duplicate tap or edit can change the in-flight snapshot. Failures clear isSending and expose sendError while retaining raw inputs/saved fields; retry is an explicit Submit action.
+
+Only successful backend acknowledgement sets isSent. Success removes saved contact fields and clears their UI values, saving just a sent flag alongside the route ID. A restored sent screen skips loading/submitting and can render confirmation immediately. An interrupted in-flight request is never auto-resubmitted after restoration; a manual retry can still duplicate email if the original SMTP handoff succeeded but its acknowledgement was lost. SavedStateHandle provides Android saved-instance restoration, not a durable form database or storage across every force-stop/task removal.
+
+The manifest still disables backups. `res/xml/data_extraction_rules.xml` also explicitly excludes all app-file domains from cloud backup/device transfer on Android 12+, following [Android's backup configuration guidance](https://developer.android.com/identity/data/autobackup). These file-transfer rules are separate from Android's saved-instance state used for form restoration.
+
+Quick Kotlin compilation and whitespace checks passed; no test suite or device walkthrough was run. Invalid/restored fields, duplicate-tap guards, failed-submit retention, sent restoration and interrupted-send behaviour remain focused coverage for Slice 15. The normal enquiry destination remains a shell until Slice 14 connects EnquiryRoot/Screen to this ViewModel.
+
 ## Android backend address
 
 The generated `BuildConfig.BASE_URL` defaults to `http://10.0.2.2:3000`. Inside the Android Emulator, `10.0.2.2` reaches your computer's loopback interface. Startup wiring supplies this address to the data module; opening the normal launcher now loads the catalogue through that source.
