@@ -4,7 +4,7 @@ An Android product catalogue built with Kotlin and Jetpack Compose. The planned 
 
 ## Current checkpoint
 
-The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio". The backend provides only a `/health` endpoint, and Mailpit supplies a local test inbox. Product features, enquiry sending and Android-to-backend requests are not implemented yet; no backend is needed to run the placeholder screen.
+The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio". The backend provides health, demo catalogue and product-detail endpoints, and Mailpit supplies a local test inbox. Image delivery, live product fetching, enquiry sending and Android-to-backend requests are not implemented yet; no backend is needed to run the placeholder screen.
 
 ## Run in Android Studio
 
@@ -102,7 +102,7 @@ npm start
 
 Run either the development server or the compiled server at a time. If port 3000 is already occupied, use `PORT=3001 npm run dev` and request port 3001 instead.
 
-Direct execution defaults to your computer's loopback interface (`HOST=127.0.0.1`). The container sets `HOST=0.0.0.0` through its Dockerfile. Product routes and enquiry sending belong to later slices.
+Direct execution defaults to your computer's loopback interface (`HOST=127.0.0.1`). The container sets `HOST=0.0.0.0` through its Dockerfile. Enquiry sending belongs to a later slice.
 
 ## Start the local email inbox
 
@@ -133,7 +133,7 @@ docker compose stop mailpit
 
 `backend/src/catalogue.ts` defines the product schema, its inferred TypeScript type, the product-source interface and a demo implementation. The demo source reads thirteen sample products across four categories from `backend/fixtures/products.json` and validates them with Zod. Sample copy, prices and ratings are illustrative.
 
-This source is not connected to an HTTP route yet. Image paths in the fixture are data references; image files and their serving route will be added in a later chunk. Featured selection, filtering, live-source integration and Android requests are also separate chunks.
+The HTTP routes load products through this source and apply the catalogue rules described below. Image paths in the fixture are data references; image files and their serving route will be added in a later chunk. Live-source integration and Android requests are also separate chunks.
 
 From `backend/`, run:
 
@@ -152,7 +152,30 @@ The test command compiles TypeScript and uses Node's built-in test runner agains
 - A nonblank search matches a case-insensitive substring in the title or description, optionally combined with a category. Search results have no featured section. Surrounding whitespace is trimmed; blank search behaves like browsing.
 - Category choices always come from the full dataset, uniquely and alphabetically sorted. Unknown categories and searches with no matches return empty product lists.
 
-The returned object contains `categories`, `featured` and `remaining`. Focused tests cover editorial selection, category ranking/ties, small categories, search, combined filters and input immutability. HTTP wiring and the UI's explicit search-submit/category-change behaviour remain later chunks.
+The returned object contains `categories`, `featured` and `remaining`. Focused tests cover editorial selection, category ranking/ties, small categories, search, combined filters and input immutability. The UI's explicit search-submit/category-change behaviour remains a later chunk.
+
+## Product HTTP endpoints
+
+`backend/src/app.ts` connects the source and catalogue rules. `createApp()` uses the demo source by default; tests can inject another source without starting the production server or changing global configuration. Each product request loads and validates the fixture. There is no cache yet.
+
+| Request | Successful response |
+| --- | --- |
+| `GET /health` | `{ "status": "ok" }`; does not read product data |
+| `GET /api/catalogue` | `{ "mode": "demo", "categories": [...], "featured": [...], "remaining": [...] }` |
+| `GET /api/catalogue?category=electronics&q=portable` | Same shape, with combined category/search rules |
+| `GET /api/products/9` | A single complete product object |
+
+Try these against the direct server (use port 3001 instead if that is your Docker host port):
+
+```sh
+curl 'http://127.0.0.1:3000/api/catalogue?category=electronics&q=portable'
+curl http://127.0.0.1:3000/api/products/9
+curl http://127.0.0.1:3000/api/products/999
+```
+
+`category` and `q` must each be a single string, up to 100 and 200 characters respectively after trimming. Repeated values are rejected. Product IDs must use positive decimal integer notation without leading zeros and fit within JavaScript's safe integer range. Invalid inputs return HTTP 400 before loading products. An unknown category or unmatched search returns HTTP 200 with empty product lists; a missing product returns HTTP 404.
+
+Errors use `{ "error": { "code": "PRODUCT_NOT_FOUND", "message": "Product not found." } }`. Other codes are `INVALID_QUERY` (400), `INVALID_PRODUCT_ID` (400), `ROUTE_NOT_FOUND` (404), and `CATALOGUE_UNAVAILABLE` (500). Source failures are logged on the server; their paths, messages and stack traces are excluded from responses. Express 5 forwards rejected async route handlers to the final four-argument error middleware. HTTP tests use a temporary loopback port and cover the real demo source, validation, empty results, missing products and injected source failures.
 
 ## Android backend address for later slices
 
