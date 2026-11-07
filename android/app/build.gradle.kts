@@ -44,6 +44,7 @@ dependencies {
     implementation(libs.compose.ui)
     debugImplementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
+    debugImplementation(libs.lifecycle.runtime.compose)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.compose.material3)

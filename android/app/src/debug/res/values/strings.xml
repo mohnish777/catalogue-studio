@@ -1,4 +1,7 @@
 <resources>
+    <string name="gallery_controls_title">Catalogue controls</string>
+    <string name="gallery_controls_description">Controls review: connected to the local backend. Product sections follow in the next chunk.</string>
+    <string name="gallery_submitted_query">Submitted search: “%1$s”</string>
     <string name="gallery_title">Product cards</string>
     <string name="gallery_description">Image success and failure, long titles and review counts. Tap a card to check its action.</string>
     <string name="gallery_loading">Image loading state</string>

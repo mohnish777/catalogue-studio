@@ -1,5 +1,13 @@
 <resources>
     <string name="app_name">Catalogue Studio</string>
+    <string name="catalogue_eyebrow">THE EVERYDAY EDIT</string>
+    <string name="catalogue_headline">Considered finds.\nEveryday possibilities.</string>
+    <string name="catalogue_intro">Explore a little. Find something that fits your world.</string>
+    <string name="catalogue_search_label">Search products</string>
+    <string name="catalogue_search">Search</string>
+    <string name="catalogue_clear_search">Clear search</string>
+    <string name="catalogue_categories">Browse by category</string>
+    <string name="catalogue_all_categories">All products</string>
     <string name="category_mens_clothing">Men\'s clothing</string>
     <string name="category_womens_clothing">Women\'s clothing</string>
     <string name="category_jewellery">Jewellery</string>
