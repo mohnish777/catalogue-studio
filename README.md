@@ -4,7 +4,7 @@ An Android product catalogue built with Kotlin and Jetpack Compose. The planned 
 
 ## Current checkpoint
 
-The Android project setup is ready. The app launches a minimal screen displaying "Catalogue Studio". Catalogue features and the backend have not been implemented on this branch yet, and no backend is needed to run this screen.
+The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio". The backend currently provides only a `/health` endpoint. Product features, email delivery and Android-to-backend requests are not implemented yet; no backend is needed to run the placeholder screen.
 
 ## Run in Android Studio
 
@@ -44,7 +44,39 @@ Run Android static checks with:
 ./gradlew lintDebug --console=plain
 ```
 
-## Backend address for later slices
+## Run the local backend
+
+Use Node.js 22 or newer. With nvm installed, select the project's version from the repository root:
+
+```sh
+nvm install
+nvm use
+cd backend
+npm ci
+npm run dev
+```
+
+The server listens on `127.0.0.1:3000`. Open [the health endpoint](http://127.0.0.1:3000/health), or run:
+
+```sh
+curl http://127.0.0.1:3000/health
+```
+
+Expected response: `{"status":"ok"}`. Stop the server with Ctrl+C. `npm run dev` watches the TypeScript files and restarts when they change; type checking is a separate command.
+
+From `backend/`, verify and run the compiled JavaScript with:
+
+```sh
+npm run typecheck
+npm run build
+npm start
+```
+
+Run either the development server or the compiled server at a time. If port 3000 is already occupied, use `PORT=3001 npm run dev` and request port 3001 instead.
+
+The server currently binds to your computer's loopback interface for local use. Mailpit, Docker and product routes belong to later chunks.
+
+## Android backend address for later slices
 
 The generated `BuildConfig.BASE_URL` defaults to `http://10.0.2.2:3000`. Inside the Android Emulator, `10.0.2.2` reaches your computer's loopback interface. This address is configured now; no HTTP client or network request exists yet.
 
@@ -71,4 +103,11 @@ android/
             ├── AndroidManifest.xml
             ├── java/com/cataloguestudio/MainActivity.kt
             └── res/values/strings.xml
+
+backend/
+├── package.json             Node dependencies and scripts
+├── tsconfig.json            TypeScript compiler settings
+└── src/
+    ├── app.ts               Express application and HTTP routes
+    └── server.ts            Port configuration and server startup
 ```
