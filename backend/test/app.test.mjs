@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import test from "node:test";
 import { createApp } from "../dist/app.js";
+import { LiveProductSource } from "../dist/product-sources.js";
 
 async function startApp(t, source) {
   const server = createApp(source).listen(0, "127.0.0.1");
@@ -126,4 +127,27 @@ test("unknown routes use the same JSON error shape", async (t) => {
   const response = await fetch(`${base}/not-a-route`);
   assert.equal(response.status, 404);
   assert.equal((await response.json()).error.code, "ROUTE_NOT_FOUND");
+});
+
+test("catalogue and detail requests share one configured live source and cache", async (t) => {
+  let requests = 0;
+  const source = new LiveProductSource(async () => {
+    requests++;
+    return Response.json([{
+      id: 1, title: "Live backpack", description: "A bag", price: 42,
+      category: "clothing", image: "https://fakestoreapi.com/img/bag.jpg",
+      rating: { rate: 4.5, count: 120 },
+    }]);
+  });
+  const base = await startApp(t, source);
+
+  const catalogueResponse = await fetch(`${base}/api/catalogue`);
+  const catalogue = await catalogueResponse.json();
+  assert.equal(catalogueResponse.status, 200);
+  assert.equal(catalogue.mode, "live");
+  assert.equal(catalogue.featured[0].title, "Live backpack");
+  const detail = await fetch(`${base}/api/products/1`);
+  assert.equal(detail.status, 200);
+  assert.equal((await detail.json()).rating, 4.5);
+  assert.equal(requests, 1);
 });

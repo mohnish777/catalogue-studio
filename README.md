@@ -4,7 +4,7 @@ An Android product catalogue built with Kotlin and Jetpack Compose. The planned 
 
 ## Current checkpoint
 
-The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio". The backend provides health, demo catalogue and product-detail endpoints, and Mailpit supplies a local test inbox. Image delivery, live product fetching, enquiry sending and Android-to-backend requests are not implemented yet; no backend is needed to run the placeholder screen.
+The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio". The backend provides health, catalogue and product-detail endpoints with explicit demo/live sources, and Mailpit supplies a local test inbox. Image delivery, enquiry sending and Android-to-backend requests are not implemented yet; no backend is needed to run the placeholder screen.
 
 ## Run in Android Studio
 
@@ -133,7 +133,7 @@ docker compose stop mailpit
 
 `backend/src/catalogue.ts` defines the product schema, its inferred TypeScript type, the product-source interface and a demo implementation. The demo source reads thirteen sample products across four categories from `backend/fixtures/products.json` and validates them with Zod. Sample copy, prices and ratings are illustrative.
 
-The HTTP routes load products through this source and apply the catalogue rules described below. Image paths in the fixture are data references; image files and their serving route will be added in a later chunk. Live-source integration and Android requests are also separate chunks.
+The HTTP routes load products through the selected source and apply the catalogue rules described below. Image paths in the fixture are data references; image files and their serving route will be added in a later chunk. Android requests are also a separate chunk.
 
 From `backend/`, run:
 
@@ -156,7 +156,7 @@ The returned object contains `categories`, `featured` and `remaining`. Focused t
 
 ## Product HTTP endpoints
 
-`backend/src/app.ts` connects the source and catalogue rules. `createApp()` uses the demo source by default; tests can inject another source without starting the production server or changing global configuration. Each product request loads and validates the fixture. There is no cache yet.
+`backend/src/app.ts` connects the source and catalogue rules. `server.ts` selects one source at startup and injects it into `createApp(source)`. Calling `createApp()` without arguments still uses demo data for tests/local embedding. Demo requests read and validate the fixture; live requests use the cache described below.
 
 | Request | Successful response |
 | --- | --- |
@@ -176,6 +176,30 @@ curl http://127.0.0.1:3000/api/products/999
 `category` and `q` must each be a single string, up to 100 and 200 characters respectively after trimming. Repeated values are rejected. Product IDs must use positive decimal integer notation without leading zeros and fit within JavaScript's safe integer range. Invalid inputs return HTTP 400 before loading products. An unknown category or unmatched search returns HTTP 200 with empty product lists; a missing product returns HTTP 404.
 
 Errors use `{ "error": { "code": "PRODUCT_NOT_FOUND", "message": "Product not found." } }`. Other codes are `INVALID_QUERY` (400), `INVALID_PRODUCT_ID` (400), `ROUTE_NOT_FOUND` (404), and `CATALOGUE_UNAVAILABLE` (500). Source failures are logged on the server; their paths, messages and stack traces are excluded from responses. Express 5 forwards rejected async route handlers to the final four-argument error middleware. HTTP tests use a temporary loopback port and cover the real demo source, validation, empty results, missing products and injected source failures.
+
+## Choose demo or live products
+
+`PRODUCT_SOURCE` defaults to `demo` when unset. Set it to exactly `demo` or `live`; other values, including an explicitly empty value, fail at startup. The startup log and catalogue response's `mode` field identify the selected source.
+
+From `backend/`, start live mode directly:
+
+```sh
+PRODUCT_SOURCE=live npm run dev
+```
+
+Or, from the repository root, start it through Compose:
+
+```sh
+PRODUCT_SOURCE=live BACKEND_PORT=3001 docker compose up --build -d --wait
+```
+
+Choose `PRODUCT_SOURCE=demo` to return to the bundled sample data. Changing the variable requires restarting/recreating the server. No credentials or new dependencies are needed.
+
+`backend/src/product-sources.ts` implements the live adapter against [Fake Store API's documented products endpoint](https://github.com/keikaavousi/fake-store-api). It validates the upstream response, maps `image` to `imageUrl` and `rating.rate/count` to our `rating/reviewCount`, and keeps existing catalogue/detail contracts unchanged. Live image URLs currently point upstream; backend image delivery will be implemented in Slice 4E before Android integration.
+
+Live loading has a five-second request/body timeout and an in-memory 60-second cache, measured from successful validation. Catalogue/detail requests share the same source and cache. Concurrent cache misses share one pending request. Failed loads are not cached, and expired data is not returned when a refresh fails; the next request can retry. The existing HTTP error handler returns `CATALOGUE_UNAVAILABLE` (500). Live mode never silently substitutes demo data. `/health` checks the process independently and does not prove upstream availability.
+
+Tests inject fetch responses and a clock to verify mapping, cache expiry, concurrent requests, failures/retries and HTTP integration without relying on external availability. During Slice 4D verification, a separate real request successfully loaded and validated 20 upstream products. This check confirms connectivity at that time, not continued upstream availability.
 
 ## Android backend address for later slices
 
