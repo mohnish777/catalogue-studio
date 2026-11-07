@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">Catalogue Studio</string>
+    <string name="category_mens_clothing">Men\'s clothing</string>
+    <string name="category_womens_clothing">Women\'s clothing</string>
+    <string name="category_jewellery">Jewellery</string>
+    <string name="category_electronics">Electronics</string>
 </resources>

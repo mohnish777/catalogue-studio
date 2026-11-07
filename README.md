@@ -4,7 +4,7 @@ An Android product catalogue built with Kotlin and Jetpack Compose. The planned 
 
 ## Current checkpoint
 
-The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio" and has domain contracts, enquiry validation, JSON mapping and a tested Ktor data-source implementation. The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources, and Mailpit supplies a local test inbox. App startup now registers the shared HTTP engine, client and data source through Koin; the UI is not connected yet. The enquiry request is prepared for the backend endpoint planned in Slice 12; actual email sending is not implemented. No backend is needed to run the placeholder screen.
+The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio" and has domain contracts, enquiry validation, JSON mapping and a tested Ktor data-source implementation. The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources, and Mailpit supplies a local test inbox. App startup now registers the shared HTTP engine, client and data source through Koin, and product display mapping is ready; the UI is not connected yet. The enquiry request is prepared for the backend endpoint planned in Slice 12; actual email sending is not implemented. No backend is needed to run the placeholder screen.
 
 ## Run in Android Studio
 
@@ -306,6 +306,14 @@ The optional engine factory parameter lets isolated JVM tests substitute MockEng
 
 The placeholder screen still makes no requests. ViewModel bindings and UI consumers will be added in their own slices; enquiry backend delivery remains Slice 12.
 
+## Android product display mapping
+
+Slice 7A adds `presentation/ProductUi.kt` and `presentation/UiText.kt`. A future ViewModel will call `Product.toProductUi()` after receiving domain products, then pass the resulting display models to Compose components. The mapper preserves identity, title, description, image URL, raw category and review count. It formats price as explicit USD with cents/grouping (64.99 → $64.99) and rating with one decimal place (4 → 4.0), using Locale.US independently of the device format locale. This is display formatting, not currency conversion or price arithmetic. Formatters are created per mapping call rather than sharing mutable NumberFormat instances.
+
+Known category labels live in Android string resources. `toCategoryLabel()` returns a `UiText.StringResource` for the four current API categories; unknown categories become `UiText.DynamicString` with their original text. For example, the API's `jewelery` displays as “Jewellery” but remains `jewelery` in the raw category field used for filtering. UiText holds a resource ID or dynamic text without needing a Context; resolving it into an actual display string comes with the shared UI helpers in the next chunk.
+
+Six JVM tests cover preserved fields, USD cents/grouping/rounding, rating formatting, independence from German/French default format locales, known category resources and unknown-category fallback. No new dependencies or requests are introduced. The app still shows its placeholder; ViewModels and Compose components will consume these models in later chunks.
+
 ## Android backend address
 
 The generated `BuildConfig.BASE_URL` defaults to `http://10.0.2.2:3000`. Inside the Android Emulator, `10.0.2.2` reaches your computer's loopback interface. Startup wiring supplies this address to the data module; no request is made by the placeholder screen yet.
@@ -336,6 +344,7 @@ android/
             │   ├── MainActivity.kt
             │   ├── domain/  Models, contracts, typed results and enquiry validation
             │   ├── data/    DTO mapping, Ktor/OkHttp client, typed requests, endpoints and di/
+            │   ├── presentation/  Product display models and resource/dynamic text
             │   └── ui/      Theme and typography
             └── res/values/strings.xml
 
