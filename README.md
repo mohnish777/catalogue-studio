@@ -488,7 +488,7 @@ The detail/enquiry shells show a title and product reference to make argument fl
 
 ## Product details
 
-Slice 11 replaces the product-detail navigation shell. `presentation/ProductDetailState.kt` holds state/actions/events, and `ProductDetailViewModel.kt` reads the productId using SavedStateHandle.toRoute<ProductDetailRoute>(). Navigation owns and restores the scalar argument. The ViewModel calls source.getProduct(id), maps a successful Product to the reviewed ProductUi, or maps typed failures (including not-found) to UiText. Retry cancels an earlier load, clears stale data and requests the same ID. Cancellation is checked before applying the result. Only a loaded product can emit NavigateToEnquiry(product.id); Back emits NavigateBack. Koin registers the ViewModel alongside CatalogueViewModel.
+Slice 11 replaces the product-detail navigation shell. `presentation/ProductDetailState.kt` holds state/actions/events, and `ProductDetailViewModel.kt` reads the productId using SavedStateHandle.get<Long>(ProductDetailRoute::productId.name). Navigation owns and restores the scalar argument. The ViewModel calls source.getProduct(id), maps a successful Product to the reviewed ProductUi, or maps typed failures (including not-found) to UiText. Retry cancels an earlier load, clears stale data and requests the same ID. Cancellation is checked before applying the result. Only a loaded product can emit NavigateToEnquiry(product.id); Back emits NavigateBack. Koin registers the ViewModel alongside CatalogueViewModel.
 
 In `ui/ProductDetailScreen.kt`, ProductDetailRoot lifecycle-collects state/events and forwards navigation callbacks to the graph. ProductDetailScreen accepts state/onAction, renders shared loading/error/image components and shows category, full title, price, rating/review count and description. Product content scrolls within the space left by Scaffold's top and bottom bars; the Enquire action stays outside that scroll area. It appears only for loaded content, so failures offer Retry rather than an enquiry for an unavailable product. The layout has system-bar insets and an 840-dp content-width cap. Three debug-only themed previews compile normal/narrow/larger-text loaded states with a bundled image and no preview network requests.
 
@@ -606,3 +606,22 @@ backend/
 
 compose.yaml                Local backend and Mailpit startup
 ```
+
+
+## Slice 15 verification
+
+The current step-by-step branch passed **91 Android JVM tests and 46 backend tests** (including actual local Mailpit SMTP capture), debug/release assembly and lint with **0 errors / 26 warnings**. A physical Samsung API 36 walkthrough verified validation, selected-product navigation, reachable Submit with the keyboard open, retained input on an actual SMTP failure, background process-death restoration without automatic sending, explicit retry, one matching captured email and confirmation/Back navigation. See [verification results and limitations](docs/VERIFICATION.md).
+
+Review [ProductFlowViewModelTest.kt](android/app/src/test/java/com/cataloguestudio/presentation/ProductFlowViewModelTest.kt) for state/submission guards and [enquiry.test.mjs](backend/test/enquiry.test.mjs) for HTTP/SMTP boundaries. The ViewModels read the scalar ID from SavedStateHandle using the route property's name; typed navigation still owns its creation/restoration. This avoids Navigation's Android Bundle decoder in plain JVM tests. The Activity now explicitly uses light system-bar styling to match StudioTheme, including on phones in dark mode.
+
+To repeat the actual UI walkthrough, start the demo backend and Mailpit, use Node 22, build/install a debug app with the loopback URL and keep the chosen device unlocked:
+
+```sh
+nvm use
+RUN_SMTP_TEST=1 npm --prefix backend test
+./android/gradlew -p android :app:assembleDebug -PapiBaseUrl=http://127.0.0.1:3000
+adb -s YOUR_SERIAL install -r android/app/build/outputs/apk/debug/app-debug.apk
+python3 scripts/smoke-android.py --serial YOUR_SERIAL --smtp-failure --output /tmp/catalogue-smoke
+```
+
+The script restarts the selected test app and submits synthetic contact data. It requires an explicit serial and saves screenshots. The optional failure branch starts its own temporary backend on an ephemeral port with unavailable SMTP, temporarily redirects USB forwarding, then restores forwarding to port 3000 and closes its own process. It leaves the normal backend and Mailpit running. No external email delivery is tested. This script assumes the current English UI/demo fixtures; it is a local review aid rather than a device-independent UI test suite.

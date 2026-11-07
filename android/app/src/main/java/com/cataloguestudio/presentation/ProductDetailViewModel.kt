@@ -3,7 +3,6 @@ package com.cataloguestudio.presentation
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.navigation.toRoute
 import com.cataloguestudio.domain.CatalogueRemoteDataSource
 import com.cataloguestudio.domain.Result
 import com.cataloguestudio.presentation.navigation.ProductDetailRoute
@@ -21,7 +20,7 @@ internal class ProductDetailViewModel(
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
     // Navigation supplies/restores this argument; product data is fetched, not stored in the route.
-    private val productId = savedStateHandle.toRoute<ProductDetailRoute>().productId
+    private val productId = requireNotNull(savedStateHandle.get<Long>(ProductDetailRoute::productId.name))
     private val _state = MutableStateFlow(ProductDetailState())
     val state = _state.asStateFlow()
     private val _events = Channel<ProductDetailEvent>()

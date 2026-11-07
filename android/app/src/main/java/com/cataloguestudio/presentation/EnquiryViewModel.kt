@@ -3,7 +3,6 @@ package com.cataloguestudio.presentation
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.navigation.toRoute
 import com.cataloguestudio.domain.CatalogueRemoteDataSource
 import com.cataloguestudio.domain.Enquiry
 import com.cataloguestudio.domain.EnquiryValidationError
@@ -23,7 +22,7 @@ internal class EnquiryViewModel(
     private val source: CatalogueRemoteDataSource,
     private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
-    private val productId = savedStateHandle.toRoute<EnquiryRoute>().productId
+    private val productId = requireNotNull(savedStateHandle.get<Long>(EnquiryRoute::productId.name))
     private val wasSent: Boolean = savedStateHandle[SENT] ?: false
     private val _state = MutableStateFlow(EnquiryState(
         name = if (wasSent) "" else savedStateHandle[NAME] ?: "",
