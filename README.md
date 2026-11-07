@@ -129,6 +129,21 @@ To stop the inbox:
 docker compose stop mailpit
 ```
 
+## Catalogue data foundation
+
+`backend/src/catalogue.ts` defines the product schema, its inferred TypeScript type, the product-source interface and a demo implementation. The demo source reads thirteen sample products across four categories from `backend/fixtures/products.json` and validates them with Zod. Sample copy, prices and ratings are illustrative.
+
+This source is not connected to an HTTP route yet. Image paths in the fixture are data references; image files and their serving route will be added in a later chunk. Featured selection, filtering, live-source integration and Android requests are also separate chunks.
+
+From `backend/`, run:
+
+```sh
+npm run typecheck
+npm test
+```
+
+The test command compiles TypeScript and uses Node's built-in test runner against the compiled module. Tests cover loading the sample dataset, rejecting malformed product values and reporting missing fixture files. Fixture paths resolve relative to the module, so loading does not depend on the directory the server is launched from.
+
 ## Android backend address for later slices
 
 The generated `BuildConfig.BASE_URL` defaults to `http://10.0.2.2:3000`. Inside the Android Emulator, `10.0.2.2` reaches your computer's loopback interface. This address is configured now; no HTTP client or network request exists yet.

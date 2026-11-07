@@ -1,0 +1,132 @@
+[
+  {
+    "id": 1,
+    "title": "Everyday canvas backpack",
+    "price": 109.95,
+    "category": "men's clothing",
+    "imageUrl": "/images/1.jpg",
+    "rating": 4.7,
+    "reviewCount": 120,
+    "description": "A durable canvas companion for the everyday. Generous storage, comfortable straps, and a clean silhouette that works from commute to weekend."
+  },
+  {
+    "id": 2,
+    "title": "Essential cotton henley",
+    "price": 22.3,
+    "category": "men's clothing",
+    "imageUrl": "/images/2.jpg",
+    "rating": 4.5,
+    "reviewCount": 259,
+    "description": "A soft cotton layer with an easy fit and considered details. Wear it on its own or beneath your favourite jacket."
+  },
+  {
+    "id": 3,
+    "title": "Field jacket",
+    "price": 55.99,
+    "category": "men's clothing",
+    "imageUrl": "/images/3.jpg",
+    "rating": 4.8,
+    "reviewCount": 500,
+    "description": "An easy outer layer for cooler days. A practical pocket layout meets a relaxed, timeless shape."
+  },
+  {
+    "id": 4,
+    "title": "Classic cotton tee",
+    "price": 15.99,
+    "category": "men's clothing",
+    "imageUrl": "/images/4.jpg",
+    "rating": 4.2,
+    "reviewCount": 430,
+    "description": "An everyday staple in soft cotton. Simple, comfortable, and ready for repeat wear."
+  },
+  {
+    "id": 5,
+    "title": "Woven silver bracelet",
+    "price": 69.0,
+    "category": "jewelery",
+    "imageUrl": "/images/5.jpg",
+    "rating": 4.6,
+    "reviewCount": 87,
+    "description": "A sculptural woven bracelet with a softly polished finish. A thoughtful detail for everyday dressing."
+  },
+  {
+    "id": 6,
+    "title": "Petite pav\u00e9 ring",
+    "price": 168.0,
+    "category": "jewelery",
+    "imageUrl": "/images/6.jpg",
+    "rating": 4.7,
+    "reviewCount": 70,
+    "description": "A delicate ring with a gentle sparkle. Made to be worn alone or layered with your favourites."
+  },
+  {
+    "id": 7,
+    "title": "Minimal silver ring",
+    "price": 19.99,
+    "category": "jewelery",
+    "imageUrl": "/images/7.jpg",
+    "rating": 4.8,
+    "reviewCount": 400,
+    "description": "A clean, understated silver band. Its minimal profile makes it an effortless addition to any collection."
+  },
+  {
+    "id": 8,
+    "title": "Rose gold earrings",
+    "price": 10.99,
+    "category": "jewelery",
+    "imageUrl": "/images/8.jpg",
+    "rating": 4.3,
+    "reviewCount": 100,
+    "description": "Small accents with a warm rose-gold finish. Light enough for everyday wear, considered enough for an occasion."
+  },
+  {
+    "id": 9,
+    "title": "Portable everyday drive",
+    "price": 64.99,
+    "category": "electronics",
+    "imageUrl": "/images/9.jpg",
+    "rating": 4.7,
+    "reviewCount": 203,
+    "description": "Keep your everyday files close. Compact portable storage with a clean design that travels easily."
+  },
+  {
+    "id": 10,
+    "title": "Compact solid-state drive",
+    "price": 109.0,
+    "category": "electronics",
+    "imageUrl": "/images/10.jpg",
+    "rating": 4.8,
+    "reviewCount": 470,
+    "description": "Fast, compact storage for your projects and ideas. A useful addition to a thoughtfully equipped workspace."
+  },
+  {
+    "id": 11,
+    "title": "Relaxed winter jacket",
+    "price": 56.99,
+    "category": "women's clothing",
+    "imageUrl": "/images/11.jpg",
+    "rating": 4.5,
+    "reviewCount": 679,
+    "description": "A comfortable, softly structured layer for colder mornings. Easy proportions leave room for your favourite knit."
+  },
+  {
+    "id": 12,
+    "title": "Everyday cotton top",
+    "price": 12.99,
+    "category": "women's clothing",
+    "imageUrl": "/images/12.jpg",
+    "rating": 4.4,
+    "reviewCount": 145,
+    "description": "A versatile cotton top with a relaxed feel. A considered basic for an uncomplicated wardrobe."
+  },
+  {
+    "id": 13,
+    "title": "Lightweight rain jacket",
+    "price": 39.99,
+    "category": "women's clothing",
+    "imageUrl": "/images/13.jpg",
+    "rating": 4.6,
+    "reviewCount": 312,
+    "description": "A lightweight layer for changeable days. Packs easily and brings a simple, practical finish to your everyday wardrobe."
+  }
+]
