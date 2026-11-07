@@ -49,6 +49,7 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.activity.compose)
     implementation(libs.lifecycle.viewmodel)
+    implementation(libs.lifecycle.viewmodel.savedstate)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)

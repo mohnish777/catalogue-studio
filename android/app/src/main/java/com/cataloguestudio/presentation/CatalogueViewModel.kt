@@ -1,5 +1,6 @@
 package com.cataloguestudio.presentation
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cataloguestudio.domain.CatalogueRemoteDataSource
@@ -15,8 +16,13 @@ import kotlinx.coroutines.launch
 
 internal class CatalogueViewModel(
     private val source: CatalogueRemoteDataSource,
+    private val savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
-    private val _state = MutableStateFlow(CatalogueState())
+    private val _state = MutableStateFlow(CatalogueState(
+        query = savedStateHandle[QUERY] ?: "",
+        submittedQuery = savedStateHandle[SUBMITTED_QUERY] ?: "",
+        selectedCategory = savedStateHandle[SELECTED_CATEGORY],
+    ))
     val state = _state.asStateFlow()
 
     private val _events = Channel<CatalogueEvent>()
@@ -30,7 +36,10 @@ internal class CatalogueViewModel(
 
     fun onAction(action: CatalogueAction) {
         when (action) {
-            is CatalogueAction.OnQueryChange -> _state.update { it.copy(query = action.query) }
+            is CatalogueAction.OnQueryChange -> {
+                savedStateHandle[QUERY] = action.query
+                _state.update { it.copy(query = action.query) }
+            }
             CatalogueAction.OnSearch -> loadCatalogue(submittedQuery = state.value.query.trim())
             CatalogueAction.OnClearSearch -> loadCatalogue(query = "", submittedQuery = "")
             is CatalogueAction.OnCategorySelect -> loadCatalogue(
@@ -52,6 +61,9 @@ internal class CatalogueViewModel(
         submittedQuery: String = state.value.submittedQuery,
     ) {
         loadJob?.cancel()
+        savedStateHandle[QUERY] = query
+        savedStateHandle[SUBMITTED_QUERY] = submittedQuery
+        savedStateHandle[SELECTED_CATEGORY] = category
         // Filters and cleared cards change together, so old cards never represent a new request.
         _state.update {
             it.copy(
@@ -92,5 +104,11 @@ internal class CatalogueViewModel(
                 }
             }
         }
+    }
+
+    private companion object {
+        const val QUERY = "catalogue.query"
+        const val SUBMITTED_QUERY = "catalogue.submittedQuery"
+        const val SELECTED_CATEGORY = "catalogue.selectedCategory"
     }
 }

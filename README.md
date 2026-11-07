@@ -4,7 +4,7 @@ An Android product catalogue built with Kotlin and Jetpack Compose. The planned 
 
 ## Current checkpoint
 
-The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio" and has domain contracts, enquiry validation, JSON mapping and a tested Ktor data-source implementation. The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources, and Mailpit supplies a local test inbox. App startup now registers the shared HTTP engine, client and data source through Koin, and product display mapping is ready; the UI is not connected yet. The enquiry request is prepared for the backend endpoint planned in Slice 12; actual email sending is not implemented. No backend is needed to run the placeholder screen.
+The Android project setup and visual foundation are ready. The app launches a minimal screen displaying "Catalogue Studio" and has domain contracts, enquiry validation, JSON mapping and a tested Ktor data-source implementation. The backend provides health, catalogue, product-detail and image endpoints with explicit demo/live sources, and Mailpit supplies a local test inbox. App startup registers the shared HTTP engine, client, data source and catalogue ViewModel through Koin. The ViewModel handles catalogue actions, request cancellation and saved input restoration; the UI is not connected yet. The enquiry request is prepared for the backend endpoint planned in Slice 12; actual email sending is not implemented. No backend is needed to run the placeholder screen.
 
 ## Run in Android Studio
 
@@ -304,7 +304,7 @@ OkHttp connection retries are explicitly disabled, matching the request helper's
 
 The optional engine factory parameter lets isolated JVM tests substitute MockEngine without changing production bindings. Tests verify lazy creation, singleton reuse, the shared request/image base URL and resource closure. A separate test resolves the default OkHttp engine through the same Koin module and makes real HTTP requests to a temporary loopback MockWebServer, checking catalogue decoding and 404 handling. MockWebServer is test-only and matches the OkHttp version used by Ktor. This verifies the production transport on the JVM; it does not verify emulator networking or Android Application startup on a device.
 
-The placeholder screen still makes no requests. ViewModel bindings and UI consumers will be added in their own slices; enquiry backend delivery remains Slice 12.
+The placeholder screen still makes no requests. Slice 8D adds the catalogue ViewModel binding as described below; UI consumers follow later. Enquiry backend delivery remains Slice 12.
 
 ## Android product display mapping
 
@@ -360,7 +360,7 @@ Slice 8A adds `presentation/CatalogueState.kt`, `CatalogueAction.kt` and `Catalo
 - CatalogueAction describes query edits, explicit Search, clear search, category selection, clear all filters, retry and product clicks. A null category means all categories. Clear search and clear all filters are separate intents so the ViewModel can handle them explicitly.
 - CatalogueEvent currently contains NavigateToProduct(productId). Navigation will be a one-time event consumed by the future Root, rather than a persistent flag in state or a data-source side effect.
 
-The intended flow is Screen action → ViewModel handles it → StateFlow publishes a new CatalogueState → Screen renders shared components. A product click will emit an event to the Root for navigation. Slice 8B adds initial loading and StateFlow as described below. Action handling, search cancellation, SavedStateHandle, DI registration and screen wiring follow in later chunks.
+The intended flow is Screen action → ViewModel handles it → StateFlow publishes a new CatalogueState → Screen renders shared components. A product click emits an event for the future Root to navigate. Slices 8B–8D add initial loading, actions, cancellation, SavedStateHandle and DI registration as described below. Screen wiring follows later.
 
 The state derives productCount from both result sections, hasActiveFilters from the selected category/submitted query, and isEmpty only when loading has finished, no error exists and both product sections are empty. For example, editing query to “headphones” while submittedQuery is “drive” leaves the active search as “drive” until Search is handled. Editing alone is not an applied filter. Read-only lists are used as state snapshots; callers must replace lists rather than mutate their backing collections. Data-class copy is shallow.
 
@@ -376,7 +376,7 @@ viewModelScope ties the request to the ViewModel's lifetime, so clearing its Vie
 
 Five focused JVM tests use an injected fake source, deferred responses, a test Main dispatcher and Turbine. They verify loading → mapped success, typed failure, empty live success, a single request shared by two collectors, and cancellation on ViewModelStore.clear with no late state/error. Tests close the ViewModelStore and restore Main. They make no real backend requests and do not verify screen rendering. Full verification passed: 61 JVM tests, debug APK build and lint (24 dependency/configuration/manifest warnings, no errors).
 
-Only tests create the ViewModel. Slice 8C adds actions as described below; saved state and Koin registration follow in 8D. The launcher and galleries keep their existing behaviour.
+Only tests create the ViewModel so far. Slices 8C/8D add actions, saved state and Koin registration as described below. The launcher and galleries keep their existing behaviour.
 
 ## Catalogue actions and request cancellation
 
@@ -399,6 +399,18 @@ Every load cancels `loadJob`, then publishes the requested filters, empty produc
 The small product-event handler was brought forward from 8D to keep action handling exhaustive without an unfinished branch. The Channel delivers each event to one collector and does not replay a consumed event. A send waits for a collector and is cancelled when the ViewModel is cleared. The future Root will collect events and navigate; this chunk adds no actual screen navigation or saved-state restoration.
 
 Focused tests use separate deferred responses for each request. They cover explicit search versus typing, request normalization, category/search clearing, submitted-filter retry, cooperative cancellation, out-of-order success/error from a source that ignores cancellation, lifecycle cancellation with both source behaviours, and a single navigation event without state mutation or reload. No real backend or emulator is needed for these controller tests. Verification passed: 71 JVM tests (15 CatalogueViewModel tests), debug APK build and lint (24 warnings, no errors). No new dependencies were added.
+
+## Catalogue saved inputs and ViewModel wiring
+
+Slice 8D injects `SavedStateHandle` into CatalogueViewModel. Its initial CatalogueState reads three keys: `catalogue.query` (draft), `catalogue.submittedQuery` (applied search), and `catalogue.selectedCategory` (raw category or null). Draft changes save the draft immediately. Every load saves its three input values before launching the request, so Search, category selection and both clear actions also update the saved inputs. Retry preserves an unsent draft.
+
+A newly created ViewModel starts in loading state and requests the restored category/submitted query once. It never submits the draft automatically. Products, category choices, mode, errors, Jobs and navigation events are not saved; products are fetched again. SavedStateHandle uses Android's saved-instance-state mechanism, not a database or durable preference store. Restoration depends on the lifecycle owner saving/restoring state; it is not a promise to retain inputs after force-stop, task removal or a fresh launch.
+
+`presentation/di/CataloguePresentationModule.kt` declares `viewModelOf(::CatalogueViewModel)`. CatalogueStudioApplication assembles this presentation module alongside the existing data module. Registration is lazy and makes no request. A future Root will call `koinViewModel()`: its lifecycle owner supplies creation extras, Koin creates the owner's SavedStateHandle and resolves the shared CatalogueRemoteDataSource, then calls the ViewModel constructor. The owner retains the ViewModel across configuration changes; a new ViewModel created after restoration reads the saved inputs and reloads. SavedStateHandle is not registered as an app singleton, and no ViewModel is created in Application.onCreate.
+
+Lifecycle viewmodel-savedstate 2.9.4 is now a direct dependency because production code imports SavedStateHandle; it was already present transitively. No new library version or DI framework is introduced. The product-click event handler was completed in 8C.
+
+Five additional ViewModel tests verify prefilled restoration, action → saved-input snapshot → new handle/new ViewModel, unsent versus applied queries, and persistence of clear-search/category-change/clear-all. They confirm that results, errors and events do not survive recreation. Two isolated Koin tests verify lazy registration and constructor resolution with distinct supplied handles and a shared fake source. Those tests supply handles explicitly and manage ViewModelStores; they do not exercise Android's Bundle serialization or Koin's lifecycle-owner creation extras. Device restoration checks follow when the screen is connected. Verification passed: all 78 JVM tests, debug APK build and lint (25 dependency/configuration/manifest warnings, no errors). The extra warning compared with 8C is the newly declared saved-state dependency's version advisory.
 
 ## Android backend address
 
@@ -430,7 +442,7 @@ android/
             │   ├── MainActivity.kt
             │   ├── domain/  Models, contracts, typed results and enquiry validation
             │   ├── data/    DTO mapping, Ktor/OkHttp client, typed requests, endpoints and di/
-            │   ├── presentation/  Display models, UiText/error mapping and catalogue state/actions/events
+            │   ├── presentation/  Display models, UiText/error mapping, catalogue ViewModel/state/actions/events and di/
             │   └── ui/      Theme, text resolution, product cards, states and catalogue summary
             └── res/values/strings.xml
 

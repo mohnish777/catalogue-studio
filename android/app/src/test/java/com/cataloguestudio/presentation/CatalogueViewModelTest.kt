@@ -1,5 +1,6 @@
 package com.cataloguestudio.presentation
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
 import app.cash.turbine.test
 import assertk.assertThat
@@ -62,8 +63,10 @@ class CatalogueViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun createViewModel(source: FakeCatalogueSource): CatalogueViewModel =
-        CatalogueViewModel(source).also { store.put("catalogue", it) }
+    private fun createViewModel(
+        source: FakeCatalogueSource,
+        savedStateHandle: SavedStateHandle = SavedStateHandle(),
+    ): CatalogueViewModel = CatalogueViewModel(source, savedStateHandle).also { store.put("catalogue", it) }
 
     @Test
     fun `initial load publishes loading then preserves backend order and maps display data`() = runTest {
@@ -340,6 +343,103 @@ class CatalogueViewModelTest {
         viewModel.events.test { expectNoEvents() }
         assertThat(viewModel.state.value).isEqualTo(before)
         assertThat(source.requests.size).isEqualTo(1)
+    }
+
+    @Test
+    fun `restored filters reload once while unsent draft stays separate and products start fresh`() = runTest {
+        val source = FakeCatalogueSource()
+        val handle = SavedStateHandle(mapOf(
+            "catalogue.query" to "headphones",
+            "catalogue.submittedQuery" to "drive",
+            "catalogue.selectedCategory" to "electronics",
+        ))
+        val viewModel = createViewModel(source, handle)
+        assertThat(source.requests).isEqualTo(listOf(Request("electronics", "drive")))
+        assertThat(viewModel.state.value).isEqualTo(CatalogueState(
+            query = "headphones", submittedQuery = "drive", selectedCategory = "electronics",
+        ))
+        source.response.complete(Result.Success(catalogue))
+        assertThat(viewModel.state.value.query).isEqualTo("headphones")
+        assertThat(viewModel.state.value.submittedQuery).isEqualTo("drive")
+        assertThat(viewModel.state.value.isLoading).isFalse()
+        assertThat(source.requests.size).isEqualTo(1)
+    }
+
+    @Test
+    fun `actions save only user inputs and a new handle recreates the last applied request`() = runTest {
+        val source = FakeCatalogueSource()
+        val handle = SavedStateHandle()
+        val viewModel = createViewModel(source, handle)
+        source.response.complete(Result.Success(catalogue))
+        viewModel.onAction(CatalogueAction.OnCategorySelect("electronics"))
+        viewModel.onAction(CatalogueAction.OnQueryChange("  drive  "))
+        // Draft edits must not apply a search to saved state either.
+        assertThat(handle.get<String>("catalogue.query")).isEqualTo("  drive  ")
+        assertThat(handle.get<String>("catalogue.submittedQuery")).isEqualTo("")
+        viewModel.onAction(CatalogueAction.OnSearch)
+        source.responses[2].complete(Result.Error(DataError.SERVER_ERROR))
+        viewModel.onAction(CatalogueAction.OnQueryChange("headphones"))
+        viewModel.onAction(CatalogueAction.OnProductClick(9))
+
+        val snapshot = handle.keys().associateWith { handle.get<Any?>(it) }
+        assertThat(snapshot).isEqualTo(mapOf(
+            "catalogue.query" to "headphones",
+            "catalogue.submittedQuery" to "drive",
+            "catalogue.selectedCategory" to "electronics",
+        ))
+        store.clear()
+        val recreatedSource = FakeCatalogueSource()
+        val recreated = createViewModel(recreatedSource, SavedStateHandle(snapshot))
+        assertThat(recreatedSource.requests).isEqualTo(listOf(Request("electronics", "drive")))
+        assertThat(recreated.state.value.query).isEqualTo("headphones")
+        assertThat(recreated.state.value.error).isNull()
+        assertThat(recreated.state.value.mode).isNull()
+        assertThat(recreated.state.value.productCount).isEqualTo(0)
+        recreated.events.test { expectNoEvents() }
+    }
+
+    @Test
+    fun `clearing search persists an empty search but preserves the category after recreation`() = runTest {
+        verifyClearedFilters(
+            CatalogueAction.OnClearSearch,
+            expectedCategory = "electronics",
+        )
+    }
+
+    @Test
+    fun `selecting a category persists the new category and removes old search after recreation`() = runTest {
+        verifyClearedFilters(
+            CatalogueAction.OnCategorySelect("Home & café"),
+            expectedCategory = "Home & café",
+        )
+    }
+
+    @Test
+    fun `clearing all filters persists home rather than restoring an old category`() = runTest {
+        verifyClearedFilters(CatalogueAction.OnClearFilters, expectedCategory = null)
+    }
+
+    private suspend fun verifyClearedFilters(action: CatalogueAction, expectedCategory: String?) {
+        val handle = SavedStateHandle(mapOf(
+            "catalogue.query" to "draft",
+            "catalogue.submittedQuery" to "drive",
+            "catalogue.selectedCategory" to "electronics",
+        ))
+        val viewModel = createViewModel(FakeCatalogueSource(), handle)
+        viewModel.onAction(action)
+        val snapshot = handle.keys().associateWith { handle.get<Any?>(it) }
+        assertThat(snapshot).isEqualTo(mapOf(
+            "catalogue.query" to "",
+            "catalogue.submittedQuery" to "",
+            "catalogue.selectedCategory" to expectedCategory,
+        ))
+        store.clear()
+        val source = FakeCatalogueSource()
+        val recreated = createViewModel(source, SavedStateHandle(snapshot))
+        assertThat(source.requests).isEqualTo(listOf(Request(expectedCategory, null)))
+        assertThat(recreated.state.value.query).isEqualTo("")
+        assertThat(recreated.state.value.submittedQuery).isEqualTo("")
+        assertThat(recreated.state.value.selectedCategory).isEqualTo(expectedCategory)
     }
 
     private data class Request(val category: String?, val query: String?)
